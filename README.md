@@ -1,5 +1,7 @@
 # Worksheet Manager (Earth & Ochre v49.05)
 
+![Build Status](https://github.com/manjeetparashar/worksheet-progress-manager/actions/workflows/ci.yml/badge.svg)
+
 **Fastest, most productive, most advanced, most efficient.**  
 A local-first, keyboard-centric productivity tool for power-user educators.
 
