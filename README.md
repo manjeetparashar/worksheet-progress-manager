@@ -1,4 +1,4 @@
-# Worksheet Manager (Earth & Ochre v49.05)
+# Worksheet Manager (Earth & Ochre v49.06)
 
 ![Build Status](https://github.com/manjeetparashar/worksheet-progress-manager/actions/workflows/ci.yml/badge.svg)
 
@@ -106,6 +106,7 @@ A local-first, keyboard-centric productivity tool for power-user educators.
 *   **`npm run perf:guard`**: Runs only DevTools baseline guard tests for fast regression checks.
 *   **Husky Pre-Commit**: Hook runs `npm run perf:guard` before commit for automatic local performance-budget protection.
 *   **Husky Pre-Push**: Hook runs `npm run check` before push for full quality gate enforcement.
+*   **`.gitattributes` Line Normalization**: Enforces consistent LF/CRLF behavior across platforms for cleaner diffs and predictable hooks/scripts.
 *   **`npm run perf:record`**: Generates machine-readable perf test report at `perf/vitest-perf-latest.json`.
 *   **`perf/chrome-devtools-baseline.json`**: Persisted DevTools baseline budget artifact for before/after refactor comparison.
 *   **`src/test/devtoolsBaseline.test.js`**: Enforces hot-navigation DevTools budget guard (`viewSwitchP95Ms`, `longTasksCount`) from baseline JSON.
