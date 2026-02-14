@@ -1,3 +1,9 @@
+### **v49.07 - Cloud Merge Gate Enforced (Protected Main)**
+- **Repository Governance**: `main` branch protection is now enabled in GitHub.
+- **Required Cloud Check**: PR merge requires the `build-and-test` job from the `Project Quality Gate` workflow to pass.
+- **Restriction Model**: Direct pushes to `main` are blocked; changes must go through PR validation and pass the 27-test cloud gate before merge.
+- **Intent**: Prevent local bypass/regression drift and keep performance/quality guarantees enforced centrally.
+
 ### **v49.06 - Line Ending Normalization (.gitattributes)**
 - **Repo Hardening**: Added `.gitattributes` to normalize line endings and reduce recurring CRLF/LF conversion noise during `git add`/commit.
 - **Policy**:
