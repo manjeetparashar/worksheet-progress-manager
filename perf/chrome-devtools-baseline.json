@@ -1,0 +1,40 @@
+{
+  "capturedAt": "2026-02-14 (post-v48.99 reprofile, test-14)",
+  "tool": "Chrome DevTools Performance",
+  "profiles": [
+    {
+      "name": "cold_start",
+      "scenario": "Open app to first interactive paint on default dataset",
+      "metrics": {
+        "domContentLoadedMs": 400,
+        "loadEventMs": 1619,
+        "firstInputDelayMs": 1,
+        "scriptEvalMs": 762
+      }
+    },
+    {
+      "name": "hot_navigation",
+      "scenario": "Switch views Today -> Active -> Due week -> Quick inbox using keyboard shortcuts",
+      "metrics": {
+        "viewSwitchP95Ms": 497,
+        "longTasksCount": 6
+      }
+    },
+    {
+      "name": "sidebar_scale",
+      "scenario": "Filter and expand deep hierarchy in contextual sidebar",
+      "metrics": {
+        "filterResponseP95Ms": 41.3,
+        "fpsMin": 46
+      }
+    }
+  ],
+  "budgets": {
+    "firstInputDelayMsMax": 100,
+    "viewSwitchP95MsMax": 700,
+    "filterResponseP95MsMax": 100,
+    "longTasksCountMax": 12,
+    "fpsMinMin": 30
+  },
+  "notes": "Fill baseline values from DevTools recordings; compare every major refactor and update this artifact."
+}
