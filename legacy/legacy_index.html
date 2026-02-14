@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data: https:; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.tailwindcss.com;">
+    <title>Worksheet Manager v47.60 (Ultimate Productivity)</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        /* Performance & Layout */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .drag-handle{cursor:move;opacity:.3;padding:.5rem;display:inline-flex;align-items:center;justify-content:center;touch-action:none}
+        .drag-handle:hover{opacity:1;background-color:#e2e8f0;border-radius:4px}
+        .sortable-ghost{opacity:.4;background-color:#cbd5e1!important}
+        .sortable-chosen{background-color:#f1f5f9!important;}
+        .sortable-drag{background-color:#fff!important;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);z-index:9999!important}
+        .class-container { content-visibility: auto; contain-intrinsic-size: 1px 120px; }
+        .loading-spinner{border:3px solid #f3f3f3;border-top:3px solid #3498db;border-radius:50%;width:30px;height:30px;animation:spin 0.6s linear infinite}
+        .highlight{animation:highlightFade 1.5s ease-out}
+        @keyframes highlightFade{0%{background-color:#fef08a}100%{background-color:transparent}}
+        .toast-enter{animation:slideIn .2s ease-out forwards}
+        @keyframes slideIn{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .stat-card{background:#fff;border-radius:8px;padding:1rem;border:1px solid #e2e8f0; transition: border-color 0.15s;}
+        .stat-card:hover { border-color: #3b82f6; transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .progress-pill{display:inline-flex;align-items:center;font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:4px;min-width:36px;justify-content:center}
+        .pill-done{background:#dcfce7;color:#16a34a}
+        .pill-mid{background:#dbeafe;color:#2563eb}
+        .pill-low{background:#fef9c3;color:#ca8a04}
+        .pill-zero{background:#f1f5f9;color:#64748b}
+        .cp-scroll::-webkit-scrollbar{width:6px;height:6px}
+        .cp-scroll::-webkit-scrollbar-track{background:transparent}
+        .cp-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+        [data-nav-item]:focus, [data-topic-id]:focus, [data-class-id]:focus, [data-item-id]:focus, .editable-text-focus:focus { outline: 2px solid #3b82f6; outline-offset: -1px; }
+        [data-nav-item] { outline: none; }
+        .topic-selected { background-color: #eff6ff !important; border-color: #3b82f6 !important; }
+        .quick-capture { position: fixed; bottom: 20px; right: 20px; width: 300px; z-index: 1000; }
+        .quick-inbox-item { border-left: 3px solid #3b82f6; }
+        .item-highlight { animation: itemHighlight 2s ease-out; }
+        @keyframes itemHighlight {
+            0% { background-color: #fef08a; }
+            50% { background-color: #fef08a; }
+            100% { background-color: transparent; }
+        }
+        @media print {
+            .no-print, header button, .fixed, .sticky { display: none !important; }
+            body { background: white; padding: 0; }
+            .class-container { page-break-inside: avoid; border: 1px solid #ddd; margin-bottom: 20px; content-visibility: visible !important; }
+            #root { max-width: 100% !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-2 md:p-6">
+<div id="root"></div>
+<script type="text/babel" data-presets="env,react">
+/* WORKSHEET MANAGER v47.60 - ULTIMATE PRODUCTIVITY EDITION (PLATINUM)
+   Features: All v47.14 intelligence + v47.50 polish + Power-User Extensions
+   Audited: Gold Master (Smart Navigation, Filter Clearing, Perf Opts, Filter Clearing on View Change, Responsive Virtual Scroll, Full Analytics Dashboard Tabs, Quick Wins Tab Implementation, Subjects Tab - Enhanced Implementation, Zombies Tab - Enhanced Implementation, Fix: Analytics Subjects Tab Data, Fix: Zombies Tab Crash)
+*/
+
+const DB_NAME='WorksheetManagerDB', STORE_NAME='app_state', DB_KEY='worksheet_data';
+const DATA_VERSION=52, TEMPLATE_VERSION=2;
+const DEFAULT_TEMPLATE=[{id:'tpl-1',label:"Theory Questions"},{id:'tpl-2',label:"Coursebook"},{id:'tpl-3',label:"Workbook"},{id:'tpl-4',label:"Grammar"},{id:'tpl-5',label:"Notebook"},{id:'tpl-6',label:"Section Quiz"},{id:'tpl-7',label:"Assignment"},{id:'tpl-8',label:"Enrichment"},{id:'tpl-9',label:"Master Revision"},{id:'tpl-10',label:"Answers"}];
+const VIEW_MODES={TODAY:'today', ACTIVE:'active', ARCHIVED:'archived', DUE_WEEK:'dueWeek', REFERENCE:'reference', QUICK_INBOX:'quickInbox'};
+const STALL_DAYS=7;
+
+const WorksheetContext=React.createContext();
+
+// --- SAFE STORAGE WRAPPER ---
+const SafeStorage = {
+    getItem: (key) => { try { return localStorage.getItem(key); } catch (e) { return null; } },
+    setItem: (key, value) => { try { localStorage.setItem(key, value); } catch (e) { } },
+    removeItem: (key) => { try { localStorage.removeItem(key); } catch (e) { } }
+};
+
+// --- OPERATION CANCELLER (Emergency Stop) ---
+const OperationCanceller = {
+    current: null,
+    cancel: () => { if (OperationCanceller.current) { OperationCanceller.current.cancelled = true; OperationCanceller.current = null; } },
+    create: () => { const controller = { cancelled: false }; OperationCanceller.current = controller; return controller; },
+    check: (controller) => { return controller && controller.cancelled; }
+};
+
+class ErrorBoundary extends React.Component {
+    constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+    static getDerivedStateFromError(error) { return { hasError: true, error }; }
+    componentDidCatch(error, errorInfo) { console.error("Uncaught error:", error, errorInfo); }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="flex items-center justify-center min-h-screen bg-red-50 p-4">
+                    <div className="bg-white p-8 rounded-lg shadow-xl max-w-lg text-center">
+                        <h2 className="text-2xl font-bold text-red-600 mb-2">System Error</h2>
+                        <button onClick={()=>window.location.reload()} className="px-6 py-2 bg-slate-800 text-white rounded hover:bg-slate-700 font-bold">Reload</button>
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
+// --- UTILITIES & SERVICES ---
+const parseNaturalDate = (input) => {
+    if(!input||input.trim()==='')return '';
+    const today=new Date();today.setHours(0,0,0,0);
+    const lc=input.toLowerCase().trim();
+    if(lc==='tomorrow'||lc==='tmr'||lc==='tom'){const d=new Date(today);d.setDate(d.getDate()+1);return d.toISOString().split('T')[0];}
+    if(lc==='today'||lc==='now'){return today.toISOString().split('T')[0];}
+    if(lc==='yest'||lc==='yesterday'){const d=new Date(today);d.setDate(d.getDate()-1);return d.toISOString().split('T')[0];}
+    const dayMatch=lc.match(/^(next\s+)?(mon|tue|wed|thu|fri|sat|sun)(day)?$/);
+    if(dayMatch){
+        const dayNames=['sun','mon','tue','wed','thu','fri','sat'];
+        const dayAbbr=dayMatch[2];
+        const targetDay=dayNames.indexOf(dayAbbr);
+        const currentDay=today.getDay();
+        let daysToAdd=targetDay-currentDay;
+        if(daysToAdd<=0||dayMatch[1])daysToAdd+=7;
+        const d=new Date(today);d.setDate(d.getDate()+daysToAdd);
+        return d.toISOString().split('T')[0];
+    }
+    const relDayMatch=lc.match(/^\+(\d+)d?$/);
+    if(relDayMatch){const d=new Date(today);d.setDate(d.getDate()+parseInt(relDayMatch[1]));return d.toISOString().split('T')[0];}
+    const relWeekMatch=lc.match(/^\+(\d+)w$/);
+    if(relWeekMatch){const d=new Date(today);d.setDate(d.getDate()+(parseInt(relWeekMatch[1])*7));return d.toISOString().split('T')[0];}
+    const mdMatch=lc.match(/^(\d{1,2})\/(\d{1,2})$/);
+    if(mdMatch){
+        const month=parseInt(mdMatch[1])-1;
+        const day=parseInt(mdMatch[2]);
+        if(month>=0&&month<12&&day>=1&&day<=31){
+            let d=new Date(today.getFullYear(),month,day);
+            if(d<today)d.setFullYear(d.getFullYear()+1);
+            return d.toISOString().split('T')[0];
+        }
+    }
+    const parsed=new Date(input);
+    return isNaN(parsed)?input:parsed.toISOString().split('T')[0];
+};
+
+function classifyTopic(t, now, stallCutoff) {
+    const total = t.items.length; const done = t.items.filter(i => i.checked).length;
+    if (total === 0 || done === 0) return 'NotStarted';
+    if (done === total) return 'Complete';
+    const lastActivity = t.items.reduce((max, i) => { if (i.checked && i.checkedAt) { const d = new Date(i.checkedAt).getTime(); return d > max ? d : max; } return max; }, 0);
+    return (lastActivity !== 0 && lastActivity < stallCutoff) ? 'Stalled' : 'InProgress';
+}
+
+function calculateProgress(items) {const done=items.filter(i=>i.checked).length;return{done,total:items.length,percent:items.length?Math.round((done/items.length)*100):0}};
+
+function checkFilters(t, filters, now, status) {
+   if (filters.has('Overdue') && !(t.dueDate && new Date(t.dueDate) < now)) return false;
+   if (filters.has('Stalled') && status !== 'Stalled') return false;
+   if (filters.has('High Priority') && t.priority !== 'High') return false;
+   if (filters.has('Notes') && (!t.notes || t.notes.trim() === '')) return false;
+   return true;
+}
+
+function isTopicVisible(t, viewMode = VIEW_MODES.TODAY, filters = new Set()) {
+    const now = Date.now();
+    const status = classifyTopic(t, now, now - (STALL_DAYS * 86400000));
+    
+    // 1. View Mode Logic
+    if (viewMode === VIEW_MODES.TODAY) {
+        // Active, Stalled, Overdue, or Fresh
+        return (status === 'InProgress' || status === 'Stalled' || 
+               (t.dueDate && new Date(t.dueDate) < now + 172800000) ||
+               ((now - new Date(t.createdAt || 0).getTime()) < 86400000)) && checkFilters(t, filters, now, status);
+    }
+    
+    if (viewMode === VIEW_MODES.DUE_WEEK) {
+         // Due within 7 days OR Overdue
+         const nextWeek = now + (7 * 24 * 60 * 60 * 1000);
+         return (t.dueDate && new Date(t.dueDate) < nextWeek && status !== 'Complete') && checkFilters(t, filters, now, status);
+    }
+    
+    if (viewMode === VIEW_MODES.REFERENCE) {
+        // Only Complete items
+        return status === 'Complete' && checkFilters(t, filters, now, status);
+    }
+    
+    if (viewMode === VIEW_MODES.QUICK_INBOX) {
+        return false; // Handled specially in App
+    }
+    
+    // Active View (Default): Show everything that passes filters
+    return true && checkFilters(t, filters, now, status);
+}
+
+const getTodayViewPriorityScore = (topic, stats) => {
+    let score = 0; const now = new Date();
+    if (topic.dueDate && new Date(topic.dueDate) < now) { const daysOverdue = Math.ceil((now - new Date(topic.dueDate)) / (1000 * 60 * 60 * 24)); score += 100 + Math.min(daysOverdue * 10, 100); }
+    const completion = calculateProgress(topic.items).percent;
+    if (completion >= 80 && completion < 100) { const pending = topic.items.filter(i => !i.checked).length; if (pending <= 10) score += 80 + (completion - 80); }
+    if (topic.priority === 'High') score += 50; else if (topic.priority === 'Medium') score += 30;
+    const lastActivity = topic.items.reduce((latest, i) => { if (i.checkedAt) { const time = new Date(i.checkedAt).getTime(); return time > latest ? time : latest; } return latest; }, 0);
+    if (lastActivity > 0) { const hoursSince = (now.getTime() - lastActivity) / (1000 * 60 * 60); if (hoursSince < 24) score += Math.max(0, 20 - Math.floor(hoursSince)); }
+    if (topic.createdAt) { const hoursOld = (now.getTime() - new Date(topic.createdAt).getTime()) / (1000 * 60 * 60); if (hoursOld < 24) score += Math.max(0, 15 - Math.floor(hoursOld)); }
+    return score;
+};
+
+function detectQuickWins(topics) {
+    return topics.filter(t => { const {done, total, percent} = calculateProgress(t.items); const pending = total - done; return (percent >= 80 && percent < 100 && pending <= 10 && total > 0); }).map(t => { const pending = t.items.filter(i => !i.checked).length; return { ...t, pendingCount: pending, estimatedMinutes: pending * 3, urgency: t.completion >= 90 ? 'VeryHigh' : 'High' }; }).sort((a, b) => b.completion - a.completion);
+}
+
+function detectZombieTopics(topics) {
+    const now = Date.now();
+    return topics.filter(t => { if (!t.createdAt) return false; const age = (now - new Date(t.createdAt).getTime()) / (1000*60*60*24); const isNeverStarted = t.items.every(i => !i.checked); return age > 90 && isNeverStarted && t.items.length > 0; }).map(t => { const ageInDays = Math.floor((now - new Date(t.createdAt).getTime()) / (1000*60*60*24)); return { ...t, ageInDays, ageCategory: ageInDays > 365 ? 'Ancient' : ageInDays > 180 ? 'Old' : 'Stale' }; }).sort((a, b) => b.ageInDays - a.ageInDays);
+}
+
+function computeEnhancedStats(classes, includeArchived = false) {
+    const now = new Date(); const stallCutoff = now.getTime() - (STALL_DAYS * 86400000);
+    const stats = { totalClasses: 0, totalSubjects:0, totalTopics:0, totalItems:0, completedItems:0, overallCompletion:0, classDetails:[], subjectDetails:[], topicDetails:[], itemDetails:[], completionBySubject:{}, overdueTopics:[], statusCounts:{Complete:0,InProgress:0,Stalled:0,NotStarted:0}, timeEstimates: { total: 0, completed: 0 }, allItems: [], itemStats: { total: 0, completed: 0, pending: 0 }, quickWins: [], zombieTopics: [] };
+    classes.forEach(c => {
+        if(c.archived && !includeArchived) return; 
+        stats.totalClasses++;
+        const classItems = c.subjects.flatMap(s => s.topics.flatMap(t => t.items));
+        const classDone = classItems.filter(i => i.checked).length;
+        const classCompletion = classItems.length > 0 ? Math.round((classDone / classItems.length) * 100) : 0;
+        c.subjects.forEach(s => {
+            stats.totalSubjects++;
+            if(!stats.completionBySubject[s.name]) stats.completionBySubject[s.name]={total:0,completed:0};
+            const subjectItems = s.topics.flatMap(t => t.items);
+            const subjectDone = subjectItems.filter(i => i.checked).length;
+            const subjectCompletion = subjectItems.length > 0 ? Math.round((subjectDone / subjectItems.length) * 100) : 0;
+            s.topics.forEach(t => {
+                stats.totalTopics++;
+                const topicDone=t.items.filter(i=>i.checked).length;
+                const pct=t.items.length>0?Math.round((topicDone/t.items.length)*100):0;
+                const status = classifyTopic(t, now, stallCutoff);
+                stats.statusCounts[status]++;
+                const isOverdue = t.dueDate && new Date(t.dueDate)<now && pct<100;
+                if(isOverdue) stats.overdueTopics.push({ className:c.name, subjectName:s.name, topicTitle:t.title, dueDate:t.dueDate, completion:pct, classId: c.id, subjectId: s.id, topicId: t.id });
+                stats.topicDetails.push({ id: t.id, classId: c.id, subjectId: s.id, className:c.name, subjectName:s.name, title:t.title, completion:pct, dueDate:t.dueDate||null, isOverdue, status, items: t.items, createdAt: t.createdAt, itemCount: t.items.length, completedItems: topicDone, priority: t.priority });
+                t.items.forEach((i, itemIndex) => {
+                    stats.totalItems++; stats.completionBySubject[s.name].total++; stats.itemStats.total++;
+                    if(i.checked) { stats.completedItems++; stats.completionBySubject[s.name].completed++; stats.itemStats.completed++; } else { stats.itemStats.pending++; }
+                    stats.allItems.push({ id: i.id, classId: c.id, subjectId: s.id, topicId: t.id, className: c.name, subjectName: s.name, topicTitle: t.title, label: i.label, checked: i.checked, checkedAt: i.checkedAt, createdAt: i.createdAt, itemIndex: itemIndex, hierarchy: `${c.name} > ${s.name} > ${t.title}` });
+                });
+            });
+            const maturityScore = Math.min(100, Math.round((s.topics.filter(t=>classifyTopic(t,now,stallCutoff)==='Complete').length*3 + s.topics.filter(t=>classifyTopic(t,now,stallCutoff)==='InProgress').length*1) / ((s.topics.length||1)*3) * 100));
+            stats.subjectDetails.push({ id: s.id, classId: c.id, className:c.name, name:s.name, completion: subjectCompletion, maturityScore, topicCount: s.topics.length });
+        });
+        stats.classDetails.push({ id: c.id, name:c.name, topicCount:c.subjects.reduce((a,b)=>a+b.topics.length,0), completion: classCompletion, archived:c.archived||false });
+    });
+    stats.overdueTopics.sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+    stats.overallCompletion=stats.totalItems>0?Math.round((stats.completedItems/stats.totalItems)*100):0;
+    stats.quickWins = detectQuickWins(stats.topicDetails);
+    stats.quickWinsSummary = { count: stats.quickWins.length, totalPendingItems: stats.quickWins.reduce((sum, t) => sum + t.pendingCount, 0), totalEstimatedMinutes: stats.quickWins.reduce((sum, t) => sum + t.estimatedMinutes, 0) };
+    stats.zombieTopics = detectZombieTopics(stats.topicDetails);
+    stats.zombieSummary = { total: stats.zombieTopics.length, ancient: stats.zombieTopics.filter(z => z.ageCategory === 'Ancient').length, old: stats.zombieTopics.filter(z => z.ageCategory === 'Old').length, stale: stats.zombieTopics.filter(z => z.ageCategory === 'Stale').length };
+    return stats;
+}
+
+const DataExportService={
+    toCSV:data=>{
+        const esc=t=>`"${String(t||'').replace(/"/g,'""')}"`;
+        const rows=[['Class','Subject','Topic','Priority','Due','Item','Status','Date','Notes','TimeEstimate'].map(esc)];
+        data.classes.forEach(c=>c.subjects.forEach(s=>s.topics.forEach(t=>t.items.forEach(i=>rows.push([c.name,s.name,t.title,t.priority||'',t.dueDate||'',i.label,i.checked?'Done':'Pending',i.checkedAt||'',t.notes||'',t.timeEstimate||''].map(esc))))));
+        return rows.map(r=>r.join(',')).join('\n');
+    },
+    toPDF:(data,stats)=>{
+        const doc=new window.jspdf.jsPDF(); const pw=doc.internal.pageSize.getWidth(); let y=18;
+        doc.setFontSize(20);doc.setFont(undefined,'bold');doc.setTextColor(30,64,175);doc.text("Worksheet Preparation Report",14,y);y+=7;
+        doc.setFontSize(9);doc.setFont(undefined,'normal');doc.setTextColor(100,116,139);doc.text(`${new Date().toLocaleString()} | v${DATA_VERSION}`,14,y);y+=10;
+        doc.setFillColor(239,246,255);doc.roundedRect(10,y,pw-20,42,3,3,'F');
+        doc.setTextColor(30,64,175);doc.setFontSize(11);doc.setFont(undefined,'bold');doc.text("Executive Summary",16,y+12);
+        doc.setTextColor(30,41,59);doc.setFontSize(9);doc.setFont(undefined,'normal');
+        doc.text(`Overall Completion: ${stats.overallCompletion}%   |   Topics: ${stats.totalTopics}   |   Actions: ${stats.totalItems}`,16,y+22);
+        doc.text(`Complete: ${stats.statusCounts.Complete}  |  In Progress: ${stats.statusCounts.InProgress}  |  Stalled: ${stats.statusCounts.Stalled}`,16,y+30);
+        y+=50;
+        if(stats.overdueTopics.length>0){
+            doc.setFillColor(254,226,226);doc.roundedRect(10,y,pw-20,Math.min(stats.overdueTopics.length*14+24,100),3,3,'F');
+            doc.setTextColor(220,38,38);doc.setFontSize(10);doc.setFont(undefined,'bold');doc.text(`⚠ Overdue Topics (${stats.overdueTopics.length})`,16,y+12);
+            doc.setFontSize(8);doc.setFont(undefined,'normal');
+            let oy=y+22;
+            stats.overdueTopics.slice(0,5).forEach(t=>{doc.setTextColor(30,41,59);doc.text(`${t.className} → ${t.subjectName} → ${t.topicTitle}`,18,oy);doc.setTextColor(220,38,38);doc.text(`Due: ${t.dueDate} | ${t.completion}%`,pw-12,oy,'R');oy+=12});
+            y+=Math.min(stats.overdueTopics.length*14+28,104)+6;
+        }
+        data.classes.forEach(c=>{
+            if(c.archived)return; if(y>250){doc.addPage();y=18}
+            doc.setFillColor(241,245,249);doc.roundedRect(10,y,pw-20,18,3,3,'F');
+            doc.setTextColor(30,64,175);doc.setFontSize(13);doc.setFont(undefined,'bold');doc.text(c.name,16,y+12); y+=24;
+            c.subjects.forEach(s=>{
+                if(y>255){doc.addPage();y=18}
+                doc.setTextColor(30,41,59);doc.setFontSize(10);doc.setFont(undefined,'bold');doc.text(s.name,20,y); 
+                const sDet=stats.subjectDetails.find(d=>d.name===s.name&&d.className===c.name);
+                if(sDet){doc.setFont(undefined,'normal');doc.setFontSize(8);doc.setTextColor(100,116,139);doc.text(`${sDet.completion}% done`,pw-14,y,'R')}
+                y+=6;
+                s.topics.forEach(t=>{ if(y>258){doc.addPage();y=18} const done = t.items.filter(i=>i.checked).length; doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.setTextColor(30,41,59); doc.text(`${t.title} (${done}/${t.items.length})${t.dueDate?' Due:'+t.dueDate:''}`,25,y); y+=4; }); y+=3;
+            }); y+=6;
+        });
+        doc.save('worksheet-report.pdf');
+    }
+};
+
+const DataImportService={
+    fromCSV:text=>{
+        const parsed=Papa.parse(text,{header:true,skipEmptyLines:true,dynamicTyping:false,transformHeader:h=>h.trim().toLowerCase()});
+        const map=new Map();
+        parsed.data.forEach(row=>{
+            const cName=row.class||row.Class||'';if(!cName)return;
+            const sName=row.subject||row.Subject||'Untitled Subject';
+            const tTitle=row.topic||row.Topic||'Untitled Topic';
+            if(!map.has(cName))map.set(cName,{id:generateId(),name:cName,subjects:new Map(),collapsed:true,archived:false});
+            const c=map.get(cName); if(!c.subjects.has(sName))c.subjects.set(sName,{id:generateId(),name:sName,topics:new Map(),collapsed:true});
+            const s=c.subjects.get(sName); if(!s.topics.has(tTitle))s.topics.set(tTitle,{id:generateId(),title:tTitle,items:[],notes:row.notes||'',priority:row.priority||'Medium',dueDate:row.due||'',templateVersion:TEMPLATE_VERSION,collapsed:true,timeEstimate:row.timeestimate||''});
+            const status=row.status||''; s.topics.get(tTitle).items.push({id:generateId(),label:row.item||'Item',checked:status.toLowerCase()==='done',checkedAt:row.date||(status.toLowerCase()==='done'?new Date().toISOString():null)});
+        });
+        return{version:DATA_VERSION,templateVersion:TEMPLATE_VERSION,classes:Array.from(map.values()).map(c=>({...c,subjects:Array.from(c.subjects.values()).map(s=>({...s,topics:Array.from(s.topics.values())}))})),template:DEFAULT_TEMPLATE,userProfile:{name:'User'},quickInbox:[]};
+    },
+    validate:json=>{try{const p=JSON.parse(json);return p.version!==undefined&&Array.isArray(p.classes)}catch{return false}},
+    migrateData: data => {
+        if (!data.version || data.version < DATA_VERSION) {
+             if (data.classes) data.classes.forEach(c => {
+                if(!c.id) c.id = generateId(); if(!c.subjects) c.subjects = [];
+                c.subjects.forEach(s => {
+                    if(!s.id) s.id = generateId(); if(!s.topics) s.topics = [];
+                    s.topics.forEach(t => {
+                        if(!t.id) t.id = generateId();
+                        t.items = t.items.map(i => i.id ? i : { ...i, id: generateId() });
+                        if (!t.priority) t.priority = 'Medium'; if (!t.notes) t.notes = '';
+                        t.items.forEach(i => { if(!i.createdAt) i.createdAt = i.checkedAt || new Date().toISOString(); });
+                        if(!t.createdAt) t.createdAt = new Date().toISOString(); 
+                    });
+                });
+            });
+            if (data.template && typeof data.template[0] === 'string') data.template = data.template.map(t => ({ id: generateId(), label: t }));
+            if (!data.quickInbox) data.quickInbox = [];
+            data.version = DATA_VERSION;
+        }
+        return data;
+    }
+};
+
+const DataMigrationService = {
+    ensureTimestamps: (data) => {
+        if (!data.classes) return data;
+        data.classes.forEach(c => { c.subjects.forEach(s => { s.topics.forEach(t => {
+            if (!t.createdAt) { t.createdAt = new Date().toISOString(); }
+            if (!t.lastActivity) {
+                const checkedItems = t.items.filter(i => i.checked && i.checkedAt);
+                if (checkedItems.length > 0) t.lastActivity = checkedItems.reduce((latest, i) => new Date(i.checkedAt) > new Date(latest) ? i.checkedAt : latest, checkedItems[0].checkedAt); else t.lastActivity = t.createdAt;
+            }
+            t.items.forEach(i => { if (!i.createdAt) { i.createdAt = i.checkedAt || t.createdAt; } });
+        }); }); });
+        data._timestampsMigrated = true;
+        return data;
+    }
+};
+
+const TestRunner = {
+    assert: (condition, msg) => { if (!condition) throw new Error(msg); },
+    testMigration: async (state) => {
+        const logs = []; const log = (m, t = 'info') => logs.push({ msg: m, type: t });
+        try {
+            log("Testing v47.60 migration...", 'header');
+            const hasTimestamps = state.classes.every(c => c.subjects.every(s => s.topics.every(t => t.createdAt && t.items.every(i => i.createdAt))));
+            TestRunner.assert(hasTimestamps, "All items have timestamps");
+            log("✓ Timestamps migration passed", 'success');
+            const stats = computeEnhancedStats(state.classes);
+            TestRunner.assert(stats.quickWins !== undefined, "Analytics engine operational");
+            log("✓ Analytics intelligence verified", 'success');
+            log("Migration test complete ✅", 'success');
+        } catch (e) { log(e.message, 'error'); }
+        return logs;
+    },
+    runAll: async (state) => {
+        const logs = []; const log = (m, t='info') => logs.push({msg: m, type: t});
+        try {
+            log("Running Self-Diagnostics...", 'header');
+            TestRunner.assert(state.classes, "Classes exist");
+            const totalTopics = state.classes.flatMap(c=>c.subjects.flatMap(s=>s.topics)).length;
+            log(`Found ${totalTopics} topics`, 'success');
+            const invalidItems = state.classes.flatMap(c=>c.subjects.flatMap(s=>s.topics.flatMap(t=>t.items))).filter(i=>!i.id);
+            if(invalidItems.length>0) log(`Found ${invalidItems.length} items without IDs`, 'error'); else log("All items have IDs", 'success');
+            const migrationLogs = await TestRunner.testMigration(state);
+            logs.push(...migrationLogs);
+        } catch (e) { log(e.message, 'error'); }
+        return logs;
+    }
+};
+
+const IDBService={
+    db:null, available: true,
+    init:()=>new Promise((res)=>{
+        if(!IDBService.available) return res(null);
+        try {
+            if(typeof indexedDB === 'undefined') { IDBService.available = false; return res(null); }
+            const r=indexedDB.open(DB_NAME,1); 
+            r.onupgradeneeded=e=>{ try { if(!e.target.result.objectStoreNames.contains(STORE_NAME)) e.target.result.createObjectStore(STORE_NAME); } catch(err) { } }; 
+            r.onsuccess=e=>{IDBService.db=e.target.result;res(IDBService.db)}; 
+            r.onerror=e=>{ IDBService.available=false; res(null); };
+        } catch(e) { IDBService.available=false; res(null); }
+    }),
+    put:async(k,v)=>{
+        if(!IDBService.available) return; if(!IDBService.db) await IDBService.init(); if(!IDBService.db) return;
+        let debounced;
+        return new Promise((res)=>{
+             try { 
+                 const r=IDBService.db.transaction(STORE_NAME,'readwrite').objectStore(STORE_NAME).put(v,k); 
+                 r.onsuccess=()=>res(); 
+                 r.onerror=()=>{ res(); }; 
+             } catch(e) { IDBService.available=false; res(); } 
+        })
+    },
+    get:async k=>{
+        if(!IDBService.available) return null; if(!IDBService.db) await IDBService.init(); if(!IDBService.db) return null;
+        return new Promise((res)=>{ try { const r=IDBService.db.transaction(STORE_NAME,'readonly').objectStore(STORE_NAME).get(k); r.onsuccess=()=>res(r.result); r.onerror=()=>{ res(null); }; } catch(e) { IDBService.available=false; res(null); } })
+    }
+};
+
+const generateId=()=> (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substr(2,9)}`;
+const historyCompress=state=>LZString.compress(JSON.stringify(state));
+const historyDecompress=s=>JSON.parse(LZString.decompress(s));
+const safeJSONParse = (str) => { try { return JSON.parse(str); } catch (e) { return null; } };
+const debounce = (func, wait) => { 
+    let timeout; 
+    const executedFunction = (...args) => { 
+        clearTimeout(timeout); 
+        timeout = setTimeout(() => func.apply(this, args), wait); 
+    };
+    executedFunction.flush = () => {
+        if(timeout) {
+            clearTimeout(timeout);
+        }
+    };
+    return executedFunction;
+};
+
+const ToastContext=React.createContext(()=>{});
+const ToastProvider=({children})=>{
+    const[toasts,setToasts]=React.useState([]);
+    const add=React.useCallback((msg,type='info')=>{const id=Date.now();setToasts(p=>[...p,{id,msg,type}]);setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),2000)},[]);
+    return(<ToastContext.Provider value={add}>{children}<div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">{toasts.map(t=><div key={t.id} className={`toast-enter px-4 py-2 rounded shadow-lg text-white text-sm font-medium ${t.type==='error'?'bg-red-600':'bg-slate-800'} ${t.type==='success'?'bg-green-600':''}`}>{t.msg}</div>)}</div></ToastContext.Provider>);
+};
+
+const useBulkSelection = () => {
+    const [selectedIds, setSelectedIds] = React.useState(new Set());
+    const [lastSelectedId, setLastSelectedId] = React.useState(null);
+    const toggleSelection = (id, visibleIds = []) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) { next.delete(id); setLastSelectedId(null); } else { next.add(id); setLastSelectedId(id); }
+            return next;
+        });
+    };
+    const handleSelection = (id, visibleIds, isShift) => {
+        if (isShift && lastSelectedId && visibleIds.includes(lastSelectedId) && visibleIds.includes(id)) {
+            const start = visibleIds.indexOf(lastSelectedId);
+            const end = visibleIds.indexOf(id);
+            const [lower, upper] = start < end ? [start, end] : [end, start];
+            const range = visibleIds.slice(lower, upper + 1);
+            setSelectedIds(prev => { const next = new Set(prev); range.forEach(itemId => next.add(itemId)); return next; });
+        } else { toggleSelection(id); }
+    };
+    const clearSelection = () => { setSelectedIds(new Set()); setLastSelectedId(null); };
+    return { selectedIds, handleSelection, clearSelection, isSelected: (id) => selectedIds.has(id), hasSelection: () => selectedIds.size > 0, toggleSelection };
+};
+
+const SortableList=({items,onReorder,renderItem,className, disabled})=>{
+    const listRef=React.useRef(null);
+    React.useEffect(()=>{
+        if(!listRef.current||!onReorder || disabled)return;
+        const s=new Sortable(listRef.current,{animation:150,handle:'.drag-handle',ghostClass:'sortable-ghost',chosenClass:'sortable-chosen',dragClass:'sortable-drag',onEnd:evt=>{if(evt.oldIndex!==evt.newIndex){const n=[...items];const[moved]=n.splice(evt.oldIndex,1);n.splice(evt.newIndex,0,moved);onReorder(n)}}});
+        return()=>s.destroy();
+    },[items, disabled]);
+    return(<div ref={listRef} className={className}>{items.map(renderItem)}</div>);
+};
+
+const VirtualScrollList = ({ items, itemHeight = 60, renderItem, className }) => {
+    const containerRef = React.useRef(null);
+    const [scrollTop, setScrollTop] = React.useState(0);
+    const [visibleHeight, setVisibleHeight] = React.useState(0);
+    React.useEffect(() => {
+        if (!containerRef.current) return;
+        const updateHeight = () => { setVisibleHeight(containerRef.current.clientHeight); };
+        updateHeight(); window.addEventListener('resize', updateHeight);
+        return () => window.removeEventListener('resize', updateHeight);
+    }, []);
+    const handleScroll = (e) => { setScrollTop(e.target.scrollTop); };
+    const totalHeight = items.length * itemHeight;
+    const startIndex = Math.floor(scrollTop / itemHeight);
+    const endIndex = Math.min(items.length - 1, startIndex + Math.ceil(visibleHeight / itemHeight));
+    const visibleItems = items.slice(startIndex, endIndex + 1);
+    const offsetY = startIndex * itemHeight;
+    if (items.length === 0) return null;
+    return ( <div ref={containerRef} className={`${className} overflow-y-auto cp-scroll`} onScroll={handleScroll} style={{ height: visibleHeight || 'calc(100vh - 250px)' }} > <div style={{ height: `${totalHeight}px`, position: 'relative' }}> <div style={{ position: 'absolute', top: `${offsetY}px`, width: '100%' }}> {visibleItems.map((item, index) => renderItem(item, startIndex + index))} </div> </div> </div> );
+};
+
+const AutoResizeTextarea = ({ value, onChange, placeholder, ...props }) => {
+    const ref = React.useRef(null);
+    React.useLayoutEffect(() => { if (ref.current) { ref.current.style.height = 'auto'; ref.current.style.height = ref.current.scrollHeight + 'px'; } }, [value]);
+    return ( <textarea ref={ref} value={value} onChange={onChange} placeholder={placeholder} className="flex-1 border rounded px-2 py-1 resize-none overflow-hidden min-h-[34px] leading-snug text-xs bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none" rows={1} onKeyDown={e => { 
+        if (e.key === 'Escape') e.target.blur();
+        if (e.ctrlKey && e.key === 'Enter' && props.onCtrlEnter) {
+            e.preventDefault();
+            props.onCtrlEnter();
+        }
+    }} /> );
+};
+
+const EditableText = ({ value, onSave, onEditingChange, className, ...props }) => {
+    const [editing, setEditing] = React.useState(false);
+    const [txt, setTxt] = React.useState(value);
+    const spanRef = React.useRef(null);
+    const inputRef = React.useRef(null);
+    
+    React.useEffect(() => { if (onEditingChange) onEditingChange(editing); }, [editing]);
+    React.useLayoutEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
+    
+    const prevEditing = React.useRef(editing);
+    React.useLayoutEffect(() => {
+        if (prevEditing.current === true && editing === false && spanRef.current) { spanRef.current.focus(); }
+        prevEditing.current = editing;
+    }, [editing]);
+
+    if (editing) { 
+        return ( 
+            <input ref={inputRef} value={txt} onChange={e => setTxt(e.target.value)} 
+                onBlur={() => { setEditing(false); if (txt.trim() !== "" && txt !== value) onSave(txt); else setTxt(value); }} 
+                onKeyDown={e => { 
+                    if (e.key === 'Enter' && e.ctrlKey) { setEditing(false); if (txt.trim() !== "" && txt !== value) onSave(txt); else setTxt(value); return; }
+                    e.stopPropagation(); 
+                    if (e.key === 'Enter') { e.preventDefault(); setEditing(false); if (txt.trim() !== "" && txt !== value) onSave(txt); else setTxt(value); } 
+                    if (e.key === 'Escape') { setEditing(false); setTxt(value); } 
+                }} 
+                className={`border rounded px-1 outline-none focus:ring-2 focus:ring-blue-500 ${className} min-w-[50px]`} 
+            /> 
+        ); 
+    }
+    return (
+        <span ref={spanRef} tabIndex="0" className={`editable-text-focus cursor-text hover:bg-slate-100 rounded px-1 border border-transparent hover:border-slate-200 ${className}`}
+            onKeyDown={(e) => { 
+                if (e.key === 'Enter') { setEditing(true); e.preventDefault(); } 
+                if (props.onKeyDown) props.onKeyDown(e); 
+            }} 
+            onClick={(e) => { e.stopPropagation(); setEditing(true); setTxt(value); }}>
+            {value}
+        </span>
+    );
+};
+
+const SmartDateInput = ({ value, onChange, className }) => {
+    const [txt, setTxt] = React.useState(value || '');
+    React.useEffect(() => { setTxt(value || ''); }, [value]);
+    const handleBlur = () => { const parsed = parseNaturalDate(txt); if (parsed !== value) onChange(parsed); setTxt(parsed); };
+    return ( <input type="text" value={txt} onChange={e => setTxt(e.target.value)} onBlur={handleBlur} onKeyDown={e => { if(e.key === 'Enter') { e.target.blur(); } }} placeholder="tomorrow, fri, +3d" className={className} /> );
+};
+
+const TemplateEditor = ({ template, onUpdate }) => {
+    return ( <div className="space-y-3"> <SortableList items={template} onReorder={items => onUpdate(items)} renderItem={item => ( <div key={item.id} className="flex items-center gap-2 p-2 bg-white border rounded mb-2 shadow-sm"> <div className="drag-handle text-slate-400">⠿</div> <input className="flex-1 border-none outline-none text-sm font-medium" value={item.label} onChange={e => { const n = template.map(t => t.id === item.id ? { ...t, label: e.target.value } : t); onUpdate(n); }} /> <button onClick={() => onUpdate(template.filter(t => t.id !== item.id))} className="text-red-400 hover:text-red-600 px-2">&times;</button> </div> )} /> <button onClick={() => onUpdate([...template, { id: generateId(), label: 'New Action' }])} className="w-full py-2 bg-slate-100 text-slate-600 rounded text-sm font-bold hover:bg-slate-200">+ Add Template Item</button> </div> );
+};
+
+const ArchiveManager = ({ classes, onUpdate }) => {
+    const archived = classes.filter(c => c.archived);
+    return ( <div className="space-y-6"> <div> <h4 className="font-bold mb-2">Archived Classes ({archived.length})</h4> {archived.length === 0 ? <p className="text-sm text-slate-500">No archived classes.</p> : archived.map(c => ( <div key={c.id} className="flex justify-between items-center p-2 border-b"> <span>{c.name}</span> <div className="flex gap-2"> <button onClick={() => onUpdate(classes.map(x => x.id === c.id ? { ...x, archived: false } : x))} className="text-sm text-green-600 hover:underline">Restore</button> <button onClick={() => onUpdate(classes.filter(x => x.id !== c.id))} className="text-sm text-red-600 hover:underline">Delete Forever</button> </div> </div> ))} </div> </div> );
+};
+
+const BulkOperationsBar = ({ selectedCount, onClear, onMarkDone, onDeleteSelected }) => {
+    if (selectedCount === 0) return null;
+    return ( <div className="fixed bottom-4 left-4 right-4 z-[80] bg-slate-800 text-white p-3 rounded-lg shadow-lg flex justify-between items-center animate-slide-up"> <div className="font-bold pl-2">{selectedCount} topics selected</div> <div className="flex gap-2"> <button onClick={onMarkDone} className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded font-bold text-sm transition-colors">Mark Complete</button> <button onClick={onDeleteSelected} className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded font-bold text-sm transition-colors">Delete</button> <button onClick={onClear} className="px-4 py-1.5 bg-slate-600 hover:bg-slate-500 text-white rounded font-bold text-sm transition-colors">Cancel</button> </div> </div> );
+};
+
+const KeyboardHelp = ({isOpen, onClose}) => {
+    if(!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full border border-slate-200">
+                <h3 className="text-xl font-bold mb-4">Shortcuts</h3>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                    <div className="flex justify-between"><span>Cmd Palette</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+K</kbd></div>
+                    <div className="flex justify-between"><span>Quick Capture</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+Shift+A</kbd></div>
+                    <div className="flex justify-between"><span>New Topic</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+N</kbd></div>
+                    <div className="flex justify-between"><span>Add Item</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+Enter</kbd></div>
+                    <div className="flex justify-between"><span>Toggle Done</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+Space</kbd></div>
+                    <div className="flex justify-between"><span>Jump Pending</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+J</kbd></div>
+                    <div className="flex justify-between"><span>Move Item/Topic</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+Shift+↑/↓</kbd></div>
+                    <div className="flex justify-between"><span>Filter Overdue</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+Shift+O</kbd></div>
+                    <div className="flex justify-between"><span>Filter Stalled</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+Shift+S</kbd></div>
+                    <div className="flex justify-between"><span>Filter High Prio</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+Shift+H</kbd></div>
+                    <div className="flex justify-between"><span>Emergency Stop</span><kbd className="bg-slate-100 px-1 rounded">Ctrl+.</kbd></div>
+                    <div className="flex justify-between"><span>Expand All</span><kbd className="bg-slate-100 px-1 rounded">Shift + ]</kbd></div>
+                    <div className="flex justify-between"><span>Collapse All</span><kbd className="bg-slate-100 px-1 rounded">Shift + [</kbd></div>
+                    <div className="flex justify-between"><span>Delete Item</span><kbd className="bg-slate-100 px-1 rounded">Shift + Delete</kbd></div>
+                    <div className="flex justify-between"><span>Zen Mode</span><kbd className="bg-slate-100 px-1 rounded">Alt + Z</kbd></div>
+                </div>
+                <button onClick={onClose} className="mt-4 px-4 py-2 bg-slate-800 text-white rounded w-full">Close</button>
+            </div>
+        </div>
+    );
+};
+
+const CommandPalette = ({isOpen, onClose, actions}) => {
+    const [query, setQuery] = React.useState('');
+    const inputRef = React.useRef(null);
+    const [selectedIdx, setSelectedIdx] = React.useState(0);
+    const [filtered, setFiltered] = React.useState([]);
+    React.useEffect(() => {
+        if(!isOpen) return;
+        const q = query.toLowerCase();
+        const res = actions.filter(a => (a.label.toLowerCase().includes(q) || (a.sub && a.sub.toLowerCase().includes(q)))).slice(0, 15);
+        setFiltered(res); setSelectedIdx(0); if(inputRef.current) inputRef.current.focus();
+    }, [query, isOpen, actions]);
+    const execute = (action) => { if(action) action.action(); onClose(); setQuery(''); };
+    const handleKey = (e) => {
+        if(e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx(i => Math.min(i+1, filtered.length-1)); }
+        if(e.key === 'ArrowUp') { e.preventDefault(); setSelectedIdx(i => Math.max(i-1, 0)); }
+        if(e.key === 'Enter' && filtered[selectedIdx]) { e.preventDefault(); execute(filtered[selectedIdx]); }
+        if(e.key === 'Escape') { onClose(); setQuery(''); }
+    };
+    if(!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-24 bg-black/20 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+                <input ref={inputRef} type="text" placeholder="Jump to..." value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKey} className="w-full px-4 py-3 text-lg border-b outline-none rounded-t-lg bg-slate-50 focus:bg-white transition-colors" />
+                <div className="max-h-[60vh] overflow-y-auto cp-scroll">
+                    {filtered.map((item, i) => ( <div key={i} className={`px-4 py-2 cursor-pointer flex items-center justify-between ${i === selectedIdx ? 'bg-blue-600 text-white' : 'hover:bg-slate-50 text-slate-700'}`} onClick={() => execute(item)}> <div className="flex-1 overflow-hidden"><div className="font-semibold text-sm truncate">{item.label}</div>{item.sub && <div className={`text-xs truncate ${i===selectedIdx?'text-blue-100':'text-slate-400'}`}>{item.sub}</div>}</div> </div> ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const QuickCapture = ({ isOpen, onClose, onAddToInbox }) => {
+    const [text, setText] = React.useState('');
+    const inputRef = React.useRef(null);
+    React.useEffect(() => { if (isOpen && inputRef.current) inputRef.current.focus(); }, [isOpen]);
+    const handleSubmit = (e) => { e.preventDefault(); if (text.trim()) { onAddToInbox(text.trim()); setText(''); if (e.nativeEvent.submitter?.dataset?.close) onClose(); } };
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-32 bg-black/20 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-md border border-slate-200" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b"><h3 className="font-bold text-slate-700">Quick Capture</h3><p className="text-xs text-slate-500">Add task now, organize later</p></div>
+                <form onSubmit={handleSubmit} className="p-4">
+                    <textarea ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} placeholder="Type task..." className="w-full border border-slate-300 rounded p-2 text-sm resize-none h-24" onKeyDown={(e) => { if (e.key === 'Enter' && e.ctrlKey) handleSubmit(e); if (e.key === 'Escape') onClose(); }} />
+                    <div className="flex justify-between mt-3"><button type="button" onClick={onClose} className="px-3 py-1 text-sm text-slate-600 hover:bg-slate-100 rounded">Cancel</button><div className="flex gap-2"><button type="submit" className="px-3 py-1 bg-slate-800 text-white text-sm rounded hover:bg-slate-700">Add</button><button type="submit" data-close="true" className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">Add & Close</button></div></div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const QuickInbox = ({ items, onDelete, onProcess, onClose }) => {
+    if (!items || items.length === 0) return null;
+    return (
+        <div className="fixed bottom-4 right-4 z-[90] w-80 bg-white border border-slate-300 rounded-lg shadow-xl">
+            <div className="p-3 border-b flex justify-between items-center"><h3 className="font-bold text-slate-700">Quick Inbox ({items.length})</h3><button onClick={onClose} className="text-slate-400 hover:text-slate-600">×</button></div>
+            <div className="max-h-64 overflow-y-auto cp-scroll"> {items.map((item, idx) => ( <div key={idx} className="quick-inbox-item p-3 border-b hover:bg-slate-50"><div className="text-sm mb-1">{item.text}</div><div className="flex justify-between items-center"><span className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span><div className="flex gap-1"><button onClick={() => onProcess(true)} className="text-xs px-2 py-1 text-blue-500 hover:underline">Process</button><button onClick={() => onDelete(item.id)} className="text-xs px-2 py-1 text-red-500 hover:underline">×</button></div></div></div> ))} </div>
+        </div>
+    );
+};
+
+const Modal=({isOpen,onClose,title,children,wide})=>{
+    React.useEffect(() => { const h=e=>{if(isOpen&&e.key==='Escape'){e.stopPropagation();onClose()}}; window.addEventListener('keydown',h); return ()=>window.removeEventListener('keydown',h); }, [isOpen,onClose]);
+    if(!isOpen)return null;
+    return( <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}> <div className={`bg-white rounded-lg shadow-2xl flex flex-col max-h-[90vh] ${wide?'w-full max-w-4xl':'w-full max-w-md'}`} onClick={e=>e.stopPropagation()}> <div className="flex justify-between items-center p-3 border-b bg-slate-50 rounded-t-lg"><h3 className="font-bold text-slate-700">{title}</h3><button onClick={onClose} className="text-slate-400 hover:text-slate-600 px-2">&times;</button></div> <div className="p-4 overflow-y-auto cp-scroll">{children}</div> </div> </div> );
+};
+
+const QuickInboxProcessor = ({ isOpen, onClose, inboxItems, state, onProcess }) => {
+    const [selectedClass, setSelectedClass] = React.useState('');
+    const [selectedSubject, setSelectedSubject] = React.useState('');
+    const [selectedTopic, setSelectedTopic] = React.useState('');
+    const [processingItem, setProcessingItem] = React.useState(null);
+    if (!isOpen || !inboxItems || inboxItems.length === 0) return null;
+    const classes = state?.classes || [];
+    const subjects = selectedClass ? (classes.find(c => c.id === selectedClass)?.subjects || []) : [];
+    const topics = selectedSubject ? (subjects.find(s => s.id === selectedSubject)?.topics || []) : [];
+    const processItem = (item, action) => {
+        if (action === 'newTopic' && selectedClass && selectedSubject) {
+            const newTopic = { id: generateId(), title: item.text.substring(0, 50), items: [{ id: generateId(), label: item.text, checked: false, createdAt: new Date().toISOString() }], priority: 'Medium', collapsed: false, templateVersion: TEMPLATE_VERSION, createdAt: new Date().toISOString() };
+            onProcess({ type: 'newTopic', classId: selectedClass, subjectId: selectedSubject, topic: newTopic, inboxItemId: item.id });
+        } else if (action === 'addToTopic' && selectedTopic) {
+            onProcess({ type: 'addToTopic', topicId: selectedTopic, item: { id: generateId(), label: item.text, checked: false, createdAt: new Date().toISOString() }, inboxItemId: item.id });
+        }
+        setProcessingItem(null);
+    };
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+                <div className="p-4 border-b flex justify-between items-center"><h3 className="font-bold text-slate-700">Process Quick Inbox</h3><button onClick={onClose} className="text-slate-400">×</button></div>
+                <div className="p-4 overflow-y-auto cp-scroll flex-1">
+                    <div className="mb-6 grid grid-cols-3 gap-4">
+                        <select value={selectedClass} onChange={(e) => { setSelectedClass(e.target.value); setSelectedSubject(''); setSelectedTopic(''); }} className="w-full border rounded px-2 py-1 text-sm"><option value="">Select Class</option>{classes.filter(c=>!c.archived).map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}</select>
+                        <select value={selectedSubject} onChange={(e) => { setSelectedSubject(e.target.value); setSelectedTopic(''); }} className="w-full border rounded px-2 py-1 text-sm" disabled={!selectedClass}><option value="">Select Subject</option>{subjects.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}</select>
+                        <select value={selectedTopic} onChange={(e) => setSelectedTopic(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" disabled={!selectedSubject}><option value="">Select Topic</option>{topics.map(t => (<option key={t.id} value={t.id}>{t.title}</option>))}<option value="__new__">+ New Topic</option></select>
+                    </div>
+                    <div className="space-y-3">{inboxItems.map((item, idx) => (<div key={idx} className="border rounded p-3 hover:bg-slate-50"><div className="flex justify-between items-start"><div className="text-sm font-medium">{item.text}</div><div className="flex gap-2 ml-4">{processingItem?.id === item.id ? (<div className="flex gap-2"><button onClick={() => processItem(item, selectedTopic === '__new__' || !selectedTopic ? 'newTopic' : 'addToTopic')} className="px-3 py-1 bg-blue-600 text-white text-xs rounded">Confirm</button><button onClick={() => setProcessingItem(null)} className="px-3 py-1 bg-slate-200 text-slate-700 text-xs rounded">Cancel</button></div>) : (<button onClick={() => setProcessingItem(item)} className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded">Process</button>)}</div></div></div>))}</div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const TopicComponent = ({ topic, onUpdate, onDelete, template, viewMode, onBulkSelect, isSelected, visibleTopics }) => {
+    React.useLayoutEffect(() => {
+        if (topic.items.length > 0) {
+            const lastItem = topic.items[topic.items.length - 1];
+            if (lastItem.label === 'New Item' && !lastItem.checked) {
+                 requestAnimationFrame(() => {
+                    const el = document.querySelector(`[data-item-id="${lastItem.id}"] .editable-text-focus`);
+                    if(el) el.click();
+                 });
+            }
+        }
+    }, [topic.items.length]);
+
+    const handleCheck = (itemId) => {
+        const updated = topic.items.map(i => i.id === itemId ? { ...i, checked: !i.checked, checkedAt: !i.checked ? new Date().toISOString() : null } : i);
+        onUpdate({ ...topic, items: updated });
+    };
+    
+    const handleItemKeyDown = (e, itemId) => {
+        if (e.ctrlKey || e.shiftKey || e.altKey || e.metaKey) return;
+        const row = e.target.closest('[data-item-id]');
+        if (!row) return;
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const nextRow = row.nextElementSibling;
+            if (nextRow) {
+                const nextFocus = nextRow.querySelector('.editable-text-focus'); 
+                if (nextFocus) nextFocus.focus();
+            } else {
+                const addItemBtn = row.closest('.p-3').querySelector('button.text-xs');
+                if(addItemBtn) addItemBtn.focus();
+            }
+        }
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prevRow = row.previousElementSibling;
+            if (prevRow) {
+                const prevFocus = prevRow.querySelector('.editable-text-focus');
+                if (prevFocus) prevFocus.focus();
+            }
+        }
+        
+        if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+            e.preventDefault();
+            handleCheck(itemId);
+        }
+
+        if (e.key === 'Delete' && e.shiftKey) {
+            e.preventDefault();
+            if(confirm('Delete this item?')) {
+                onUpdate({ ...topic, items: topic.items.filter(i => i.id !== itemId) });
+            }
+        }
+    };
+
+    const handleTopicKeyDown = (e) => {
+        if (e.target !== e.currentTarget && !e.target.classList.contains('editable-text-focus')) return;
+        if (e.code === 'Space' && !editingTitle) {
+            e.preventDefault();
+            onBulkSelect.handleSelection(topic.id, visibleTopics, e.shiftKey);
+        }
+    };
+
+    const [editingTitle, setEditingTitle] = React.useState(false);
+
+    const { done, total, percent } = calculateProgress(topic.items);
+    return (
+        <div id={topic.id} 
+             className={`border rounded-lg mb-4 bg-white shadow-sm transition-all ${topic.priority === 'High' ? 'border-l-4 border-l-red-500' : ''} ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`} 
+             data-topic-focusable="true" 
+             data-topic-id={topic.id} 
+             tabIndex="0"
+             onKeyDown={handleTopicKeyDown}>
+            <div className={`flex items-center p-3 gap-2 bg-slate-50 rounded-t-lg border-b ${isSelected ? 'bg-blue-100' : ''}`} onClick={(e) => { if(e.shiftKey) onBulkSelect.handleSelection(topic.id, visibleTopics, true); }}>
+                <div className="drag-handle text-slate-400">⠿</div>
+                <input type="checkbox" checked={isSelected} onChange={(e) => {e.stopPropagation(); onBulkSelect.handleSelection(topic.id, visibleTopics, e.nativeEvent.shiftKey)}} className="mr-2" />
+                <button onClick={(e) => {e.stopPropagation(); onUpdate({ ...topic, collapsed: !topic.collapsed })}} className="text-slate-500 text-sm font-bold w-6">{topic.collapsed ? '▸' : '▾'}</button>
+                <EditableText value={topic.title} onSave={(v) => onUpdate({ ...topic, title: v })} onEditingChange={setEditingTitle} className="font-bold flex-1 text-sm text-slate-700" />
+                <span className={`progress-pill ${percent === 100 ? 'pill-done' : percent >= 50 ? 'pill-mid' : percent > 0 ? 'pill-low' : 'pill-zero'}`}>{percent}%</span>
+                <SmartDateInput value={topic.dueDate} onChange={(v) => onUpdate({ ...topic, dueDate: v })} className="w-20 text-xs border rounded px-1 text-center bg-white" />
+                <button onClick={onDelete} className="text-slate-300 hover:text-red-500 px-2">&times;</button>
+            </div>
+            {!topic.collapsed && (
+                <div className="p-3">
+                    <div className="mb-3 flex gap-2">
+                        <AutoResizeTextarea 
+                            value={topic.notes} 
+                            onChange={(e) => onUpdate({ ...topic, notes: e.target.value })} 
+                            placeholder="Notes..." 
+                            onCtrlEnter={() => onUpdate({...topic, items: [...topic.items, {id: generateId(), label: 'New Item', checked: false, createdAt: new Date().toISOString()}]})}
+                        />
+                        <select value={topic.priority} onChange={(e) => onUpdate({ ...topic, priority: e.target.value })} className="text-xs border rounded px-1 h-[34px]"> <option value="Low">Low</option> <option value="Medium">Med</option> <option value="High">High</option> </select>
+                    </div>
+                    <SortableList items={topic.items} onReorder={(items) => onUpdate({ ...topic, items })} renderItem={(item, idx) => (
+                        <div key={item.id} id={`item-${item.id}`} className="flex items-start gap-2 py-1 group" data-item-id={item.id}>
+                            <input type="checkbox" checked={item.checked} onChange={() => handleCheck(item.id)} className="mt-1" />
+                            <div className="flex-1" tabIndex="-1">
+                                <EditableText 
+                                    value={item.label} 
+                                    onSave={(v) => onUpdate({ ...topic, items: topic.items.map(i => i.id === item.id ? { ...i, label: v } : i) })} 
+                                    className={`w-full block text-sm ${item.checked ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                                    onKeyDown={(e) => handleItemKeyDown(e, item.id)} 
+                                />
+                            </div>
+                            <button onClick={() => onUpdate({ ...topic, items: topic.items.filter(i => i.id !== item.id) })} className="text-slate-200 hover:text-red-400 opacity-0 group-hover:opacity-100">&times;</button>
+                        </div>
+                    )} />
+                    <button onClick={() => onUpdate({...topic, items: [...topic.items, {id: generateId(), label: 'New Item', checked: false, createdAt: new Date().toISOString()}]})} className="text-xs text-slate-400 hover:text-blue-500 mt-2 font-medium focus:text-blue-700 focus:outline-none">+ Add Item (Ctrl+Enter)</button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const SubjectComponent = ({ subject, onUpdate, onDelete, template, viewMode, filters, onBulkSelect, selectedIds, visibleTopicIds, isFiltered }) => {
+    React.useLayoutEffect(() => {
+        if (subject.topics.length > 0) {
+            const lastTopic = subject.topics[subject.topics.length - 1];
+            if (lastTopic.title === 'New Topic') {
+                requestAnimationFrame(() => {
+                    const el = document.querySelector(`[data-topic-id="${lastTopic.id}"] .font-bold`);
+                    if(el && !el.querySelector('input')) el.click(); 
+                });
+            }
+        }
+    }, [subject.topics.length]);
+
+    const completion = subject.topics.flatMap(t=>t.items).length > 0 ? Math.floor((subject.topics.flatMap(t=>t.items).filter(i=>i.checked).length/subject.topics.flatMap(t=>t.items).length)*100) : 0;
+
+    return (
+        <div id={subject.id} className="ml-2 mb-4 border-l-2 border-slate-200 pl-4" data-nav-item="true" data-subject-id={subject.id} tabIndex="0">
+            <div className="flex items-center gap-2 mb-2 group">
+                <div className="drag-handle text-slate-400">⠿</div>
+                <button onClick={() => onUpdate({ ...subject, collapsed: !subject.collapsed })} className="text-slate-500 font-bold">{subject.collapsed ? '+' : '-'}</button>
+                <EditableText value={subject.name} onSave={(v) => onUpdate({ ...subject, name: v })} className="font-bold text-slate-600 text-sm" />
+                {completion > 0 && <span className="text-[10px] text-slate-400 bg-slate-100 px-1 rounded ml-2">{completion}% done</span>}
+                <button onClick={onDelete} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 text-xs">Delete Subject</button>
+            </div>
+            {!subject.collapsed && (
+                <SortableList items={subject.topics} disabled={isFiltered} onReorder={(topics) => { if(isFiltered) return; onUpdate({ ...subject, topics }); }} renderItem={topic => (
+                    <TopicComponent key={topic.id} topic={topic} onUpdate={(t) => onUpdate({ ...subject, topics: subject.topics.map(x => x.id === topic.id ? t : x) })} onDelete={() => onUpdate({ ...subject, topics: subject.topics.filter(x => x.id !== topic.id) })} template={template} viewMode={viewMode} onBulkSelect={onBulkSelect} isSelected={selectedIds.has(topic.id)} visibleTopics={visibleTopicIds} />
+                )} />
+            )}
+            {!subject.collapsed && <button onClick={() => onUpdate({ ...subject, topics: [...subject.topics, { id: generateId(), title: 'New Topic', items: template.map(t => ({ id: generateId(), label: t.label, checked: false, createdAt: new Date().toISOString() })), priority: 'Medium', collapsed: false, createdAt: new Date().toISOString() }] })} className="text-xs text-blue-500 hover:underline ml-2">+ New Topic (Ctrl+N)</button>}
+        </div>
+    );
+};
+
+const ClassComponent = ({ cls, onUpdate, onDelete, template, viewMode, filters, onBulkSelect, visibleTopicIds, isFiltered }) => {
+    React.useLayoutEffect(() => {
+        if (cls.name === 'New Class' && cls.subjects.length === 0) {
+            requestAnimationFrame(() => {
+                const el = document.querySelector(`[data-class-id="${cls.id}"] .text-xl`);
+                if(el && !el.querySelector('input')) el.click();
+            });
+        }
+    }, []);
+
+    React.useLayoutEffect(() => {
+        if (cls.subjects.length > 0) {
+            const lastSubject = cls.subjects[cls.subjects.length - 1];
+            if (lastSubject.name === 'New Subject') {
+                requestAnimationFrame(() => {
+                    const el = document.querySelector(`[data-subject-id="${lastSubject.id}"] .font-bold`);
+                    if(el && !el.querySelector('input')) el.click();
+                });
+            }
+        }
+    }, [cls.subjects.length]);
+
+    return (
+        <div id={cls.id} className="class-container mb-8 bg-white border rounded-lg shadow-sm p-4" data-class-id={cls.id} tabIndex="0">
+            <div className="flex justify-between items-center mb-4 border-b pb-2">
+                <div className="flex items-center gap-3">
+                    <div className="drag-handle text-slate-400">⠿</div>
+                    <EditableText value={cls.name} onSave={(v) => onUpdate({ ...cls, name: v })} className="text-xl font-bold text-slate-800" />
+                    <span className="text-xs text-slate-400">{cls.subjects.length} subjects</span>
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={() => onUpdate({ ...cls, collapsed: !cls.collapsed })} className="text-sm text-slate-500 hover:bg-slate-100 px-2 rounded">{cls.collapsed ? 'Expand' : 'Collapse'}</button>
+                    <button onClick={onDelete} className="text-sm text-red-400 hover:bg-red-50 px-2 rounded">Delete</button>
+                </div>
+            </div>
+            {!cls.collapsed && (
+                <SortableList items={cls.subjects} disabled={isFiltered} onReorder={(subjects) => { if(isFiltered) return; onUpdate({ ...cls, subjects }); }} renderItem={subject => (
+                    <SubjectComponent key={subject.id} subject={subject} onUpdate={(s) => onUpdate({ ...cls, subjects: cls.subjects.map(x => x.id === subject.id ? s : x) })} onDelete={() => onUpdate({ ...cls, subjects: cls.subjects.filter(x => x.id !== subject.id) })} template={template} viewMode={viewMode} filters={filters} onBulkSelect={onBulkSelect} selectedIds={onBulkSelect.selectedIds} visibleTopicIds={visibleTopicIds} isFiltered={isFiltered} />
+                )} />
+            )}
+            {!cls.collapsed && <button onClick={() => onUpdate({ ...cls, subjects: [...cls.subjects, { id: generateId(), name: 'New Subject', topics: [], collapsed: false }] })} className="w-full py-2 border-2 border-dashed border-slate-200 rounded text-slate-400 hover:border-blue-300 hover:text-blue-500 font-bold text-sm">+ Add Subject</button>}
+        </div>
+    );
+};
+
+const WhatsNewModal = ({ isOpen, onClose }) => {
+    if (!isOpen) return null;
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="What's New in v47.60">
+            <div className="space-y-4">
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg">
+                    <h3 className="text-lg font-bold text-slate-800 mb-2">Ultimate Productivity Edition</h3>
+                    <p className="text-slate-600">All v47.14 intelligence + v47.50 polish + Power-User extensions</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[{ icon: '⌨️', title: 'Keyboard Reordering', desc: 'Ctrl+Shift+↑/↓ to move items, topics, subjects' }, { icon: '🚀', title: 'Jump to Next Pending', desc: 'Ctrl+J to cycle through uncompleted items' }, { icon: '🎯', title: 'Smart Today View', desc: 'Prioritizes overdue, quick wins, high priority' }, { icon: '🛑', title: 'Emergency Stop', desc: 'Ctrl+. to cancel long operations' }, { icon: '📊', title: 'Enhanced PDF Export', desc: 'Includes overdue topics section' }, { icon: '⚡', title: 'Quick Filter Shortcuts', desc: 'Ctrl+Shift+O/S/H/N for instant filtering' }, { icon: '🔍', title: 'Virtual Scrolling', desc: 'Smooth performance with 500+ topics' }].map((feat, idx) => ( <div key={idx} className="border rounded p-3 hover:bg-slate-50"> <div className="flex items-start gap-3"> <span className="text-xl">{feat.icon}</span> <div> <h4 className="font-bold text-slate-700">{feat.title}</h4> <p className="text-sm text-slate-600">{feat.desc}</p> </div> </div> </div> ))}
+                </div>
+                <div className="border-t pt-4">
+                    <p className="text-sm text-slate-500"> <strong>Pro Tip:</strong> Press <kbd className="bg-slate-100 px-1 rounded">?</kbd> anytime for keyboard shortcuts. </p>
+                    <button onClick={() => { SafeStorage.setItem('ws_seen_v47_60', 'true'); onClose(); }} className="mt-4 w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold"> Let's Go! 🚀 </button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+const AnalyticsDashboard = ({ state, stats, onNavigate, onUpdateState, onToast }) => {
+    const [tab, setTab] = React.useState('overview');
+    const [searchTerm, setSearchTerm] = React.useState('');
+    
+    const hierarchicalStats = React.useMemo(() => {
+        const classStats = stats.classDetails.map(cls => ({ ...cls, statusBreakdown: { Complete: stats.topicDetails.filter(t=>t.classId===cls.id && t.status==='Complete').length, InProgress: stats.topicDetails.filter(t=>t.classId===cls.id && t.status==='InProgress').length, Stalled: stats.topicDetails.filter(t=>t.classId===cls.id && t.status==='Stalled').length, NotStarted: stats.topicDetails.filter(t=>t.classId===cls.id && t.status==='NotStarted').length } }));
+        const topicStats = stats.topicDetails.map(t => ({ ...t, itemCount: t.items.length, completedItems: t.items.filter(i=>i.checked).length, pendingItems: t.items.filter(i=>!i.checked).length }));
+        return { classStats, topicStats };
+    }, [stats]);
+
+    const filteredTopics = React.useMemo(() => {
+        if (!searchTerm) return hierarchicalStats.topicStats;
+        const s = searchTerm.toLowerCase();
+        return hierarchicalStats.topicStats.filter(t => t.title.toLowerCase().includes(s) || t.className.toLowerCase().includes(s) || t.subjectName.toLowerCase().includes(s));
+    }, [hierarchicalStats.topicStats, searchTerm]);
+
+    const archiveZombies = (category) => {
+        if(confirm(`Archive all ${stats.zombieSummary[category.toLowerCase()]} ${category.toLowerCase()} zombie topics?`)) {
+            const ids = stats.zombieTopics.filter(z => z.ageCategory === category).map(t => t.id);
+            onUpdateState(prev => ({
+                ...prev,
+                classes: prev.classes.map(c => ({...c, subjects: c.subjects.map(s => ({...s, topics: s.topics.filter(t => !ids.includes(t.id))}))}))
+            }));
+            onToast(`Archived ${ids.length} ${category.toLowerCase()} zombies`, 'success');
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex space-x-4 border-b text-sm overflow-x-auto"> {['overview', 'quickwins', 'insights', 'classes', 'subjects', 'topics', 'zombies', 'overdue'].map(t => ( <button key={t} onClick={() => { setTab(t); setSearchTerm(''); }} className={`pb-2 capitalize whitespace-nowrap ${tab === t ? 'border-b-2 border-blue-600 text-blue-600 font-bold' : 'text-slate-500'}`}> {t} </button> ))} </div>
+            {tab === 'overview' && (
+                <div className="space-y-6">
+                    <div className="bg-gradient-to-r from-blue-50 to-slate-50 border rounded-lg p-6">
+                        <div className="flex justify-between items-center mb-6"><div><h2 className="text-xl font-bold text-slate-800">System Health Dashboard</h2></div><div className="text-right"><div className="text-3xl font-bold text-blue-600">{stats.overallCompletion}%</div><div className="text-sm text-slate-500">Completion</div></div></div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div className="bg-white border rounded-lg p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalClasses}</div><div className="text-sm text-slate-600">Classes</div></div>
+                            <div className="bg-white border rounded-lg p-4 text-center"><div className="text-2xl font-bold text-green-600">{stats.completedItems}</div><div className="text-sm text-slate-600">Done Items</div></div>
+                            <div className="bg-white border rounded-lg p-4 text-center"><div className="text-2xl font-bold text-red-600">{stats.overdueTopics.length}</div><div className="text-sm text-slate-600">Overdue</div></div>
+                            <div className="bg-white border rounded-lg p-4 text-center"><div className="text-2xl font-bold text-purple-600">{stats.statusCounts.Stalled}</div><div className="text-sm text-slate-600">Stalled</div></div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {tab === 'quickwins' && (
+                <div className="space-y-4">
+                    <div className="bg-gradient-to-r from-green-50 to-blue-50 border rounded-lg p-6">
+                        <h2 className="text-xl font-bold text-slate-800 mb-4">🎯 Quick Wins - Finish These This Week</h2>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="bg-white border rounded p-3 text-center"><div className="text-2xl font-bold text-green-600">{stats.quickWins.length}</div><div className="text-xs text-slate-600">Quick Wins</div></div>
+                            <div className="bg-white border rounded p-3 text-center"><div className="text-2xl font-bold text-blue-600">{stats.quickWinsSummary.totalPendingItems}</div><div className="text-xs text-slate-600">Items Left</div></div>
+                            <div className="bg-white border rounded p-3 text-center"><div className="text-2xl font-bold text-purple-600">~{stats.quickWinsSummary.totalEstimatedMinutes}</div><div className="text-xs text-slate-600">Minutes Total</div></div>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        {stats.quickWins.map((topic, idx) => (
+                            <div key={idx} onClick={() => onNavigate(topic.classId, topic.subjectId, topic.id)} className="border rounded-lg p-4 hover:bg-green-50 cursor-pointer bg-white">
+                                <div className="flex justify-between items-start mb-2"><div className="flex-1"><div className="font-bold text-slate-800">{topic.title}</div><div className="text-sm text-slate-600">{topic.className} → {topic.subjectName}</div></div><div className="text-right"><div className="text-2xl font-bold text-green-600">{topic.completion}%</div></div></div>
+                                <div className="mb-3"><div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-green-400 to-green-600" style={{width: `${topic.completion}%`}}></div></div></div>
+                                <div className="flex justify-between items-center"><div className="flex gap-3"><span className="text-sm px-3 py-1 bg-green-100 text-green-800 rounded font-semibold">{topic.pendingCount} items left</span><span className="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded">~{topic.estimatedMinutes} min</span></div><span className="text-sm text-slate-400 group-hover:text-blue-600">Open →</span></div>
+                            </div>
+                        ))}
+                    </div>
+                    {stats.quickWins.length === 0 && <div className="text-center py-12 text-slate-400"><div className="text-4xl mb-2">🎉</div><p>No quick wins found!</p></div>}
+                </div>
+            )}
+            {tab === 'insights' && (
+                <div className="space-y-4">
+                    {stats.quickWins.length > 0 && <div className="bg-green-50 border border-green-200 rounded p-4"><h3 className="font-bold text-green-800 mb-2">⚡ Quick Wins ({stats.quickWins.length})</h3><div className="space-y-1">{stats.quickWins.slice(0,5).map(t=>(<div key={t.id} className="text-sm text-green-700 cursor-pointer hover:underline" onClick={()=>onNavigate(t.classId,t.subjectId,t.id)}>{t.title} ({t.pendingCount} left)</div>))}</div></div>}
+                    {stats.zombieTopics.length > 0 && <div className="bg-gray-100 border border-gray-200 rounded p-4"><h3 className="font-bold text-gray-700 mb-2">🧟 Zombie Topics ({stats.zombieTopics.length})</h3><div className="space-y-1">{stats.zombieTopics.slice(0,5).map(t=>(<div key={t.id} className="text-sm text-gray-600 cursor-pointer hover:underline" onClick={()=>onNavigate(t.classId,t.subjectId,t.id)}>{t.title} ({t.ageInDays} days inactive)</div>))}</div></div>}
+                </div>
+            )}
+            {tab === 'topics' && (
+                <div className="space-y-4">
+                    <input type="text" placeholder="Search topics..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm outline-none" />
+                    {filteredTopics.length > 0 ? (
+                        <VirtualScrollList items={filteredTopics} itemHeight={48} className="border rounded max-h-[500px]" renderItem={(topic) => (
+                            <div key={topic.id} onClick={() => onNavigate(topic.classId, topic.subjectId, topic.id)} className={`flex justify-between items-center p-2 border-b hover:bg-blue-50 cursor-pointer ${topic.isOverdue ? 'bg-red-50' : ''}`}>
+                                <div className="flex-1 px-2"><div className="font-medium text-sm">{topic.title}</div><div className="text-xs text-slate-500">{topic.className} → {topic.subjectName}</div></div>
+                                <div className="w-24 text-right px-2 text-sm font-mono">{topic.completion}%</div>
+                            </div>
+                        )} />
+                    ) : <div className="text-center py-12 text-slate-400 italic">No topics found.</div>}
+                </div>
+            )}
+            {tab === 'classes' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {hierarchicalStats.classStats.map(c=>(<div key={c.id} className="border p-4 rounded bg-white hover:shadow-sm cursor-pointer" onClick={()=>onNavigate(c.id)}><div className="font-bold">{c.name}</div><div className="text-xs text-slate-500">{c.topicCount} topics</div><div className="mt-2 text-sm font-bold text-blue-600">{c.completion}% Done</div></div>))}
+                </div>
+            )}
+            {tab === 'subjects' && (
+                <div className="space-y-3">
+                    {stats.subjectDetails.map((subj, idx) => (
+                        <div key={idx} onClick={() => onNavigate(subj.classId, subj.id)} className="border rounded-lg p-4 hover:bg-slate-50 cursor-pointer bg-white">
+                            <div className="flex justify-between items-center"><div><div className="font-bold text-slate-800">{subj.name}</div><div className="text-sm text-slate-600">{subj.className} • {subj.topicCount} topics</div></div><div className="text-right"><div className="text-xl font-bold text-blue-600">{subj.completion}%</div></div></div>
+                            <div className="mt-3"><div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-blue-600" style={{width: `${subj.completion}%`}}></div></div></div>
+                        </div>
+                    ))}
+                </div>
+            )}
+            {tab === 'zombies' && (
+                <div className="space-y-4">
+                    <div className="bg-gradient-to-r from-slate-50 to-purple-50 border rounded-lg p-6">
+                        <h2 className="text-xl font-bold text-slate-800 mb-4">👻 Zombie Topics</h2>
+                        <div className="grid grid-cols-3 gap-4 mb-4">
+                            <div className="bg-white border border-red-200 rounded p-3 text-center"><div className="text-2xl font-bold text-red-600">{stats.zombieSummary.ancient}</div><div className="text-xs text-slate-600">Ancient (>1y)</div></div>
+                            <div className="bg-white border border-orange-200 rounded p-3 text-center"><div className="text-2xl font-bold text-orange-600">{stats.zombieSummary.old}</div><div className="text-xs text-slate-600">Old (6-12m)</div></div>
+                            <div className="bg-white border border-yellow-200 rounded p-3 text-center"><div className="text-2xl font-bold text-yellow-600">{stats.zombieSummary.stale}</div><div className="text-xs text-slate-600">Stale (3-6m)</div></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <button onClick={()=>archiveZombies('Ancient')} className="py-2 bg-red-600 text-white font-bold rounded text-xs">Archive Ancient</button>
+                            <button onClick={()=>archiveZombies('Old')} className="py-2 bg-orange-600 text-white font-bold rounded text-xs">Archive Old</button>
+                            <button onClick={()=>archiveZombies('Stale')} className="py-2 bg-yellow-600 text-white font-bold rounded text-xs">Archive Stale</button>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        {stats.zombieTopics.map((topic, idx) => (
+                            <div key={idx} onClick={() => onNavigate(topic.classId, topic.subjectId, topic.id)} className="border rounded-lg p-4 cursor-pointer bg-white">
+                                <div className="flex justify-between items-start mb-2"><div className="flex items-center gap-2 flex-1"><span className="text-2xl">👻</span><div><div className="font-bold text-slate-800">{topic.title}</div><div className="text-sm text-slate-600">{topic.className} → {topic.subjectName}</div></div></div><div className="text-right"><div className="text-lg font-bold">{topic.ageInDays} days</div><div className="text-xs text-slate-500">old</div></div></div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+            {tab === 'overdue' && (
+                <div className="space-y-2">
+                    {stats.overdueTopics.map(t=>(<div key={t.topicId} onClick={()=>onNavigate(t.classId,t.subjectId,t.topicId)} className="p-3 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100"><div className="flex justify-between items-start"><div className="font-bold text-red-800">{t.topicTitle}</div><div className="text-xs text-red-600 font-bold uppercase">{t.dueDate}</div></div><div className="text-xs text-red-500 mt-1">{t.className} → {t.subjectName} • {t.completion}% complete</div></div>))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- APP ---
+const App=()=>{
+    const toast=React.useContext(ToastContext);
+    const [state,setState]=React.useState(null);
+    const [history,setHistory]=React.useState([]);
+    const [histIdx,setHistIdx]=React.useState(-1);
+    const [modal,setModal]=React.useState(null);
+    const [viewMode,setViewMode]=React.useState(() => SafeStorage.getItem('ws_view_mode') || VIEW_MODES.TODAY); 
+    const [paletteOpen, setPaletteOpen]=React.useState(false);
+    const [focusModeId, setFocusModeId] = React.useState(null); 
+    const [showHelp, setShowHelp] = React.useState(false);
+    const [showWhatsNew, setShowWhatsNew] = React.useState(false);
+    const [autoBackup, setAutoBackup] = React.useState(() => SafeStorage.getItem('ws_auto_backup') === 'true');
+    const [filters, setFilters] = React.useState(() => { try { return new Set(JSON.parse(SafeStorage.getItem('ws_filters') || '[]')); } catch { return new Set(); } });
+    const [quickCaptureOpen, setQuickCaptureOpen] = React.useState(false);
+    const [showQuickInbox, setShowQuickInbox] = React.useState(false);
+    const [quickInboxProcessorOpen, setQuickInboxProcessorOpen] = React.useState(false);
+    const [exporting, setExporting] = React.useState(false);
+    const bulkSelection = useBulkSelection();
+    
+    const debouncedPersist = React.useCallback(debounce((newState) => { IDBService.put(DB_KEY, JSON.stringify(newState)); }, 1000), []);
+    
+    const updateState = React.useCallback((update, skipHistory = false, forcePersist = false) => {
+        setState(prev => {
+            const next = typeof update === 'function' ? update(prev) : update;
+            if (!skipHistory) {
+                setHistory(h => {
+                    const nh = h.slice(0, histIdx + 1);
+                    nh.push(historyCompress(next));
+                    if (nh.length > 20) nh.shift();
+                    return nh;
+                });
+                setHistIdx(i => Math.min(i + 1, 19));
+            }
+            try { localStorage.setItem('ws_dirty_state', JSON.stringify(next)); } catch (e) {}
+            if (forcePersist) IDBService.put(DB_KEY, JSON.stringify(next));
+            else debouncedPersist(next);
+            return next;
+        });
+    }, [histIdx, debouncedPersist]);
+
+    const stats = React.useMemo(() => {
+        if (!state) return null;
+        return computeEnhancedStats(state.classes);
+    }, [state?.classes?.length, state?.classes?.map(c => `${c.subjects.length}:${c.subjects.map(s => s.topics.length).join('-')}`).join('|')]);
+
+    const classesToRender = React.useMemo(() => { 
+        if (!state) return []; 
+        let list = viewMode === VIEW_MODES.ARCHIVED ? state.classes.filter(c => c.archived) : state.classes.filter(c => !c.archived);
+        if (viewMode === VIEW_MODES.TODAY) {
+            return list.map(c => ({ 
+                ...c, 
+                subjects: c.subjects.map(s => ({ 
+                    ...s, 
+                    topics: [...s.topics].filter(t => isTopicVisible(t, VIEW_MODES.TODAY, filters)).map(t => ({ ...t, _score: getTodayViewPriorityScore(t, stats) })).sort((a, b) => b._score - a._score) 
+                })).filter(s => s.topics.length > 0) 
+            })).filter(c => c.subjects.length > 0);
+        }
+        if (viewMode === VIEW_MODES.QUICK_INBOX) return [];
+        const hasFilters = filters.size > 0 || viewMode === VIEW_MODES.DUE_WEEK || viewMode === VIEW_MODES.REFERENCE;
+        if (!hasFilters) return list;
+        return list.map(c => ({
+            ...c,
+            subjects: c.subjects.map(s => ({ ...s, topics: s.topics.filter(t => isTopicVisible(t, viewMode, filters)) })).filter(s => s.topics.length > 0)
+        })).filter(c => c.subjects.length > 0);
+    }, [state, viewMode, filters, stats]);
+
+    const visibleTopicIds = React.useMemo(() => classesToRender.flatMap(c => c.subjects.flatMap(s => s.topics.map(t => t.id))), [classesToRender]);
+    const isFiltered = React.useMemo(() => (viewMode !== VIEW_MODES.ACTIVE && viewMode !== VIEW_MODES.ARCHIVED) || filters.size > 0, [viewMode, filters]);
+
+    React.useEffect(() => { bulkSelection.clearSelection(); if ([VIEW_MODES.REFERENCE, VIEW_MODES.QUICK_INBOX, VIEW_MODES.DUE_WEEK].includes(viewMode)) setFilters(new Set()); }, [viewMode]);
+    React.useEffect(() => { SafeStorage.setItem('ws_view_mode', viewMode); }, [viewMode]);
+    React.useEffect(() => { SafeStorage.setItem('ws_filters', JSON.stringify(Array.from(filters))); }, [filters]);
+
+    React.useEffect(()=>{ (async () => { 
+        const dirty = SafeStorage.getItem('ws_dirty_state');
+        const saved = await IDBService.get(DB_KEY); 
+        let init = safeJSONParse(dirty) || safeJSONParse(saved) || {version:DATA_VERSION,templateVersion:TEMPLATE_VERSION,classes:[],template:DEFAULT_TEMPLATE,userProfile:{name:'User'},quickInbox:[]}; 
+        if(init.version < DATA_VERSION) init = DataImportService.migrateData(init);
+        if (!init._timestampsMigrated) init = DataMigrationService.ensureTimestamps(init);
+        setState(init); setHistory([historyCompress(init)]); setHistIdx(0); 
+        if (!SafeStorage.getItem('ws_seen_v47_60')) setTimeout(() => setShowWhatsNew(true), 1000);
+    })(); },[]);
+
+    const restoreFocus = (id, type = 'item') => {
+        setTimeout(() => {
+            let el = document.getElementById(id) || document.querySelector(`[data-${type}-id="${id}"]`);
+            if (!el && type === 'item') el = document.getElementById(`item-${id}`);
+            if (el) { const focusable = el.querySelector('.editable-text-focus') || el; focusable.focus({preventScroll: true}); el.classList.add('highlight'); setTimeout(() => el.classList.remove('highlight'), 1500); }
+        }, 50);
+    };
+
+    const moveItemInState = (topicId, itemId, direction) => {
+        updateState(prev => ({ ...prev, classes: prev.classes.map(c => ({ ...c, subjects: c.subjects.map(s => ({ ...s, topics: s.topics.map(t => { if (t.id === topicId) { const items = [...t.items]; const idx = items.findIndex(i => i.id === itemId); if (idx === -1 || (direction === -1 && idx === 0) || (direction === 1 && idx === items.length - 1)) return t; const [moved] = items.splice(idx, 1); items.splice(idx + direction, 0, moved); return { ...t, items }; } return t; }) })) })) }));
+        restoreFocus(itemId, 'item');
+    };
+
+    const addItemToTopic = (topicId) => {
+        const newItemId = generateId();
+        updateState(prev => ({ ...prev, classes: prev.classes.map(c => ({ ...c, subjects: c.subjects.map(s => ({ ...s, topics: s.topics.map(t => t.id === topicId ? { ...t, items: [...t.items, {id: newItemId, label: 'New Item', checked: false, createdAt: new Date().toISOString()}] } : t) })) })) }));
+        setTimeout(() => { const el = document.querySelector(`[data-item-id="${newItemId}"] .editable-text-focus`); if(el) el.click(); }, 100);
+    };
+
+    const handleCreateClass = () => {
+        const newId = generateId();
+        updateState(prev => ({ ...prev, classes: [...prev.classes, { id: newId, name: 'New Class', subjects: [], collapsed: false }] }));
+        setViewMode(VIEW_MODES.ACTIVE);
+        setTimeout(() => { const el = document.getElementById(newId); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); const edit = el.querySelector('.editable-text-focus'); if (edit) edit.click(); } }, 300);
+    };
+
+    const jumpToNextPending = () => {
+        const allItems = [];
+        state.classes.forEach(c => { if (c.archived) return; c.subjects.forEach(s => { s.topics.forEach(t => { t.items.forEach(i => { if (!i.checked) allItems.push({ itemId: i.id }); }); }); }); });
+        if (allItems.length === 0) return toast('No pending items!');
+        const currentItemId = document.activeElement?.closest('[data-item-id]')?.getAttribute('data-item-id');
+        const idx = currentItemId ? allItems.findIndex(i => i.itemId === currentItemId) : -1;
+        const next = allItems[(idx + 1) % allItems.length];
+        navigateTo(null, null, `item-${next.itemId}`, true);
+    };
+
+    const navigateTo = (cId, sId, tId) => { 
+        setModal(null);
+        setViewMode(VIEW_MODES.ACTIVE); 
+        setTimeout(() => { const el = document.getElementById(tId || sId || cId); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('highlight'); const focusable = el.querySelector('.editable-text-focus'); if(focusable) focusable.focus(); else el.focus(); } }, 300); 
+    };
+
+    const exportPDF = async () => {
+        setExporting(true);
+        await new Promise(res => setTimeout(res, 100));
+        DataExportService.toPDF(state, stats);
+        setExporting(false);
+    };
+
+    React.useEffect(()=>{ 
+        const h=e=>{ 
+            if(e.ctrlKey && e.key==='k') { e.preventDefault(); setPaletteOpen(true); } 
+            if(e.ctrlKey && e.key==='z' && !e.shiftKey) { e.preventDefault(); if(histIdx>0){ const i=histIdx-1; setHistIdx(i); setState(historyDecompress(history[i])); } } 
+            if(e.ctrlKey && e.key==='y') { e.preventDefault(); if(histIdx<history.length-1){ const i=histIdx+1; setHistIdx(i); setState(historyDecompress(history[i])); } }
+            if(e.ctrlKey && e.shiftKey && e.key==='a') { e.preventDefault(); setQuickCaptureOpen(true); }
+            if(e.ctrlKey && e.key === 'j') { e.preventDefault(); jumpToNextPending(); }
+            if (e.ctrlKey && e.key === 'Enter') { const topicEl = document.activeElement.closest('[data-topic-id]'); if (topicEl) { e.preventDefault(); addItemToTopic(topicEl.getAttribute('data-topic-id')); } }
+            if(e.ctrlKey && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                e.preventDefault(); const dir = e.key === 'ArrowUp' ? -1 : 1;
+                const itemEl = document.activeElement.closest('[data-item-id]'); 
+                const topicEl = document.activeElement.closest('[data-topic-id]');
+                if (itemEl && topicEl) moveItemInState(topicEl.getAttribute('data-topic-id'), itemEl.getAttribute('data-item-id'), dir);
+            }
+        }; 
+        window.addEventListener('keydown',h); return()=>window.removeEventListener('keydown',h); 
+    },[state, histIdx]);
+
+    if(!state) return <div className="h-screen flex items-center justify-center"><div className="loading-spinner"/></div>;
+
+    const actions = [
+        {label:'Create New Class', action: handleCreateClass},
+        ...state.classes.flatMap(c=>c.subjects.flatMap(s=>s.topics.map(t=>({ label: t.title, sub: `${c.name} > ${s.name}`, action: ()=>navigateTo(c.id, s.id, t.id) })))),
+        {label:'Export PDF', action: exportPDF}
+    ];
+
+    return (
+        <WorksheetContext.Provider value={{state, updateState, viewMode}}>
+            <div className={`max-w-4xl mx-auto pb-32 ${focusModeId ? 'pt-10' : ''}`}>
+                {exporting && <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center text-white font-bold">Generating PDF...</div>}
+                {!focusModeId && (
+                    <header className="flex items-center justify-between mb-6 pt-4 no-print">
+                        <div><h1 className="text-2xl font-bold tracking-tight text-slate-900">Worksheet Manager <span className="text-xs font-mono text-slate-400">v47.60</span></h1></div>
+                        <div className="flex gap-2">
+                            <button onClick={handleCreateClass} className="text-sm px-3 py-1 bg-blue-600 text-white font-bold rounded shadow-sm">+ Class</button>
+                            <button onClick={()=>setModal('analytics')} className="text-sm px-3 py-1 bg-white border rounded">Analytics</button>
+                            <button onClick={()=>setModal('export')} className="text-sm px-3 py-1 bg-slate-800 text-white rounded">Data</button>
+                            <button onClick={()=>setShowHelp(true)} className="text-sm border rounded-full w-8 h-8 flex items-center justify-center font-bold text-slate-400">?</button>
+                        </div>
+                    </header>
+                )}
+                <div className="sticky top-2 z-40 bg-white/90 backdrop-blur border border-slate-200 shadow-sm rounded-lg p-1.5 mb-6 flex justify-between no-print">
+                    <div className="flex gap-1"> {Object.entries(VIEW_MODES).map(([key, mode])=>( <button key={mode} onClick={()=>setViewMode(mode)} className={`px-3 py-1 rounded text-xs font-bold uppercase ${viewMode===mode?'bg-slate-800 text-white':'text-slate-500 hover:bg-slate-100'}`}>{key.toLowerCase()}</button> ))} </div>
+                    <div className="flex gap-1 border-l pl-2"> {['Overdue', 'Stalled', 'High Priority', 'Notes'].map(f=>( <button key={f} onClick={()=>setFilters(p=>{const n=new Set(p); if(n.has(f))n.delete(f); else n.add(f); return n;})} className={`px-2 py-1 rounded text-[10px] font-bold border ${filters.has(f)?'bg-blue-600 text-white':'bg-white text-slate-500'}`}>{f}</button> ))} </div>
+                </div>
+                
+                <SortableList items={classesToRender.filter(c => !focusModeId || c.id === focusModeId)} disabled={isFiltered} onReorder={n => updateState({...state, classes: n})} renderItem={cls => ( 
+                    <ClassComponent key={cls.id} cls={cls} onUpdate={u=>updateState({...state,classes:state.classes.map(c=>c.id===cls.id?u:c)})} onDelete={()=>updateState({...state,classes:state.classes.filter(c=>c.id!==cls.id)})} template={state.template || DEFAULT_TEMPLATE} viewMode={viewMode} filters={filters} onBulkSelect={bulkSelection} visibleTopicIds={visibleTopicIds} isFiltered={isFiltered} /> 
+                )} />
+                
+                {classesToRender.length === 0 && <div className="text-center py-20 text-slate-400">🧘 No items in this view.</div>}
+                
+                <Modal isOpen={modal==='analytics'} onClose={()=>setModal(null)} title="Analytics" wide={true}><AnalyticsDashboard state={state} stats={stats} onNavigate={navigateTo} onUpdateState={updateState} onToast={toast} /></Modal>
+                <Modal isOpen={modal==='export'} onClose={()=>setModal(null)} title="Data & Maintenance">
+                    <div className="grid grid-cols-1 gap-2">
+                        <button onClick={()=>{const b=new Blob([DataExportService.toCSV(state)],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`ws-${new Date().toISOString().split('T')[0]}.csv`;a.click();}} className="p-3 border rounded text-left hover:bg-slate-50 font-bold text-sm">Download CSV</button>
+                        <button onClick={exportPDF} className="p-3 border rounded text-left hover:bg-slate-50 font-bold text-sm">Download PDF Report</button>
+                        <button onClick={()=>{const b=new Blob([JSON.stringify(state)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`ws-backup.json`;a.click();}} className="p-3 border rounded text-left hover:bg-slate-50 font-bold text-sm">Download JSON Backup</button>
+                        <div className="p-3 border rounded bg-slate-50">
+                            <div className="text-xs font-bold text-slate-500 mb-2 uppercase">Import Data (JSON or CSV)</div>
+                            <input type="file" className="text-sm w-full" accept=".json,.csv" onChange={e=>{ 
+                                const f=e.target.files[0]; if(!f)return; 
+                                const r=new FileReader(); 
+                                r.onload=evt=>{ 
+                                    let d = f.name.endsWith('.csv') ? DataImportService.fromCSV(evt.target.result) : safeJSONParse(evt.target.result); 
+                                    if(d && DataImportService.validate(JSON.stringify(d))) { 
+                                        updateState(DataImportService.migrateData(d)); 
+                                        setModal(null); 
+                                        toast('Import Successful!', 'success'); 
+                                    } else alert('Invalid File Format'); 
+                                }; 
+                                r.readAsText(f); 
+                            }}/>
+                        </div>
+                        <button onClick={()=>TestRunner.runAll(state).then(logs => alert(logs.map(l => l.msg).join('\n')))} className="p-3 border rounded text-left hover:bg-blue-50 font-bold text-sm text-blue-700">Run System Diagnostics</button>
+                        <button onClick={()=>setModal('archive')} className="p-3 border rounded text-left hover:bg-slate-50 font-bold text-sm">Manage Archived Classes</button>
+                    </div>
+                </Modal>
+                <Modal isOpen={modal==='archive'} onClose={()=>setModal('export')} title="Archived Classes">
+                    <ArchiveManager classes={state.classes} onUpdate={c => updateState({...state, classes: c})} />
+                </Modal>
+                
+                <QuickCapture isOpen={quickCaptureOpen} onClose={() => setQuickCaptureOpen(false)} onAddToInbox={text => updateState(p => ({...p, quickInbox: [...(p.quickInbox||[]), {text, createdAt: new Date().toISOString(), id: generateId()}]}))} />
+                <CommandPalette isOpen={paletteOpen} onClose={()=>setPaletteOpen(false)} actions={actions} />
+                <KeyboardHelp isOpen={showHelp} onClose={()=>setShowHelp(false)} />
+                <BulkOperationsBar selectedCount={bulkSelection.selectedIds.size} onClear={bulkSelection.clearSelection} onDeleteSelected={() => { if(confirm('Delete selected topics?')) updateState(p => ({...p, classes: p.classes.map(c => ({...c, subjects: c.subjects.map(s => ({...s, topics: s.topics.filter(t => !bulkSelection.isSelected(t.id))}))}))})); bulkSelection.clearSelection(); }} onMarkDone={() => { updateState(p => ({...p, classes: p.classes.map(c => ({...c, subjects: c.subjects.map(s => ({...s, topics: s.topics.map(t => bulkSelection.isSelected(t.id) ? {...t, items: t.items.map(i => ({...i, checked: true, checkedAt: i.checked ? i.checkedAt : new Date().toISOString()}))} : t)}))}))})); bulkSelection.clearSelection(); }} />
+            </div>
+        </WorksheetContext.Provider>
+    );
+};
+
+const root=ReactDOM.createRoot(document.getElementById('root'));
+root.render(<ErrorBoundary><ToastProvider><App/></ToastProvider></ErrorBoundary>);
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+*.tmp
+coverage/
+perf/vitest-perf-latest.json
+.env
+.env.*

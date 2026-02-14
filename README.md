@@ -1,4 +1,4 @@
-# Worksheet Manager (Earth & Ochre v49.03)
+# Worksheet Manager (Earth & Ochre v49.04)
 
 **Fastest, most productive, most advanced, most efficient.**  
 A local-first, keyboard-centric productivity tool for power-user educators.

@@ -1,3 +1,8 @@
+### **v49.04 - Repo Bootstrap Hygiene (Gitignore + Full Source Tracking)**
+- **Repo Hygiene**: Added `.gitignore` to exclude dependency/build/runtime artifacts:
+- `node_modules/`, `dist/`, logs/temp, coverage, env files, and `perf/vitest-perf-latest.json`.
+- **Source Tracking Fix**: Prepared full project source for Git tracking after initial repository bootstrap so core app files are versioned.
+
 ### **v49.03 - Husky Pre-Commit Hook Compatibility Fix**
 - **Fix: Pre-Commit Bootstrap Script Path**: Updated `.husky/pre-commit` to remove the legacy `husky.sh` sourcing line, which was referencing a non-existent file in the current Husky layout.
 - **Current Hook**: Runs only `npm run perf:guard` for fast performance regression gating before commit.
