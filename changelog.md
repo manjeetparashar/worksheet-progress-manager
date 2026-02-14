@@ -1,3 +1,8 @@
+### **v49.05 - Push-Time Quality Gate + Git Identity Cleanup**
+- **Workflow Hardening**: Added `.husky/pre-push` hook to run `npm run check` before push, enforcing `lint + test + build` on every push attempt.
+- **Identity Consistency**: Removed repository-local Git `user.name`/`user.email` overrides so configured global identity is used consistently.
+- **Validation**: `npm run check` passed with `27/27` tests passing.
+
 ### **v49.04 - Repo Bootstrap Hygiene (Gitignore + Full Source Tracking)**
 - **Repo Hygiene**: Added `.gitignore` to exclude dependency/build/runtime artifacts:
 - `node_modules/`, `dist/`, logs/temp, coverage, env files, and `perf/vitest-perf-latest.json`.
