@@ -1,3 +1,11 @@
+### **v49.09 - Friction Capture Loop (Production-Use Feedback)**
+- **Workflow Addition**: Added `docs/friction-capture-template.md` to capture real usage slowdowns during day-to-day worksheet work.
+- **Purpose**: Shift from broad building to evidence-driven iteration using measurable friction logs from live usage.
+- **Method**:
+- Log trigger, delay, frequency, workaround, and target metric.
+- Weekly prioritize by `frequency * delay`.
+- Feed top items into PRs with before/after metrics.
+
 ### **v49.08 - PR Template for Performance-Gated Reviews**
 - **Workflow Addition**: Added `.github/pull_request_template.md` to standardize PR submissions under protected-branch workflow.
 - **Template Focus**:

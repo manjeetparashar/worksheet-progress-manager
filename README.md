@@ -1,4 +1,4 @@
-# Worksheet Manager (Earth & Ochre v49.08)
+# Worksheet Manager (Earth & Ochre v49.09)
 
 ![Build Status](https://github.com/manjeetparashar/worksheet-progress-manager/actions/workflows/ci.yml/badge.svg)
 
@@ -116,6 +116,7 @@ A local-first, keyboard-centric productivity tool for power-user educators.
 *   **Sidebar Guard**: Baseline test also enforces `filterResponseP95Ms` and minimum `fpsMin` floor to prevent sidebar-scale regressions.
 *   **`perf/README.md`**: Repeatable measurement workflow for synthetic + DevTools profiling.
 *   **`perf/template-fill.md`**: Step-by-step DevTools checklist mapping trace metrics to baseline JSON fields.
+*   **`docs/friction-capture-template.md`**: Lightweight production-use template for logging real workflow slowdowns and converting them into measurable optimization PRs.
 *   **Trace Mode (`ws_perf_trace`)**: Optional compute-path timing logs for isolating view/sidebar/command build hotspots.
 *   Regression coverage includes:
 *   Historical migration fixtures (`v48.00`, `v48.10`, `v48.25`, `v48.31`).
