@@ -1,3 +1,17 @@
+### **v49.07 - Cloud Merge Gate Enforced (Protected Main)**
+- **Repository Governance**: `main` branch protection is now enabled in GitHub.
+- **Required Cloud Check**: PR merge requires the `build-and-test` job from the `Project Quality Gate` workflow to pass.
+- **Restriction Model**: Direct pushes to `main` are blocked; changes must go through PR validation and pass the 27-test cloud gate before merge.
+- **Intent**: Prevent local bypass/regression drift and keep performance/quality guarantees enforced centrally.
+
+### **v49.06 - Line Ending Normalization (.gitattributes)**
+- **Repo Hardening**: Added `.gitattributes` to normalize line endings and reduce recurring CRLF/LF conversion noise during `git add`/commit.
+- **Policy**:
+- Default text files use `LF`.
+- Windows-native scripts keep `CRLF` (`.bat`, `.cmd`, `.ps1`).
+- Shell scripts and project source/docs/config (`.sh`, `.js/.jsx/.ts/.tsx`, `.css`, `.html`, `.json`, `.yml/.yaml`, `.md`) are pinned to `LF`.
+- **Intent**: Cleaner diffs, consistent cross-platform behavior, lower Git friction for power-user workflow.
+
 ### **v49.05 - Push-Time Quality Gate + Git Identity Cleanup**
 - **Workflow Hardening**: Added `.husky/pre-push` hook to run `npm run check` before push, enforcing `lint + test + build` on every push attempt.
 - **Identity Consistency**: Removed repository-local Git `user.name`/`user.email` overrides so configured global identity is used consistently.
