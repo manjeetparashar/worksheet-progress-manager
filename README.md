@@ -1,4 +1,4 @@
-# Worksheet Manager (Earth & Ochre v49.07)
+# Worksheet Manager (Earth & Ochre v49.08)
 
 ![Build Status](https://github.com/manjeetparashar/worksheet-progress-manager/actions/workflows/ci.yml/badge.svg)
 
@@ -108,6 +108,7 @@ A local-first, keyboard-centric productivity tool for power-user educators.
 *   **Husky Pre-Push**: Hook runs `npm run check` before push for full quality gate enforcement.
 *   **Protected `main` Branch**: Direct pushes to `main` are blocked in GitHub; all changes flow through PRs.
 *   **Required Cloud Status Check**: Merge requires `Project Quality Gate / build-and-test` to pass (27-test suite + lint/build gate).
+*   **PR Template Enforcement**: `.github/pull_request_template.md` captures performance evidence, quality checks, and changelog/README memory updates for every PR.
 *   **`.gitattributes` Line Normalization**: Enforces consistent LF/CRLF behavior across platforms for cleaner diffs and predictable hooks/scripts.
 *   **`npm run perf:record`**: Generates machine-readable perf test report at `perf/vitest-perf-latest.json`.
 *   **`perf/chrome-devtools-baseline.json`**: Persisted DevTools baseline budget artifact for before/after refactor comparison.

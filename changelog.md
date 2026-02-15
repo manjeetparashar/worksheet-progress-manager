@@ -1,3 +1,12 @@
+### **v49.08 - PR Template for Performance-Gated Reviews**
+- **Workflow Addition**: Added `.github/pull_request_template.md` to standardize PR submissions under protected-branch workflow.
+- **Template Focus**:
+- Change rationale tied to speed/productivity impact.
+- Required DevTools before/after performance evidence for UI/render/state changes.
+- Local and cloud quality-gate checklist (`perf:guard`, `check`, CI `build-and-test`).
+- Behavioral safety checks plus mandatory `changelog.md` and `README.md` updates.
+- **Intent**: Reduce review ambiguity, enforce measurable performance discipline, and prevent regressions under PR-only merge policy.
+
 ### **v49.07 - Cloud Merge Gate Enforced (Protected Main)**
 - **Repository Governance**: `main` branch protection is now enabled in GitHub.
 - **Required Cloud Check**: PR merge requires the `build-and-test` job from the `Project Quality Gate` workflow to pass.
